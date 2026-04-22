@@ -28,6 +28,12 @@ export async function login(email: string, password: string): Promise<boolean> {
     if (typeof window !== "undefined") {
         localStorage.setItem(AUTH_KEY, "true");
         localStorage.setItem(ROLE_KEY, data.role || "user");
+        if (data.mustChangePassword) {
+            localStorage.setItem("pwx_must_change_password", "true");
+            localStorage.removeItem("pocketworx_boms"); // production requirement: wipe BOMs on first deploy login
+        } else {
+            localStorage.removeItem("pwx_must_change_password");
+        }
     }
 
     return true;

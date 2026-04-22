@@ -54,3 +54,8 @@ Desktop.ini
 *.swo
 .turbo
 .eslintcache
+
+# sqlite database
+*.sqlite
+*.sqlite-*
+

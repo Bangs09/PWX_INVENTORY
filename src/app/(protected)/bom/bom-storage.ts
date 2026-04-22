@@ -95,53 +95,7 @@ export function entryToStored(b: BOMEntry): Record<string, unknown> {
     return payload;
 }
 
-export const defaultBOMs: BOMEntry[] = [
-    {
-        id: "BOM-127",
-        name: "PWX Gateway v3.2",
-        components: 24,
-        revision: "Rev C",
-        status: "Active",
-        author: "Alice Smith",
-        lastModified: "2 hours ago",
-    },
-    {
-        id: "BOM-126",
-        name: "PWX Sensor Node v2",
-        components: 18,
-        revision: "Rev B",
-        status: "Active",
-        author: "Bob Jones",
-        lastModified: "1 day ago",
-    },
-    {
-        id: "BOM-125",
-        name: "PWX Base Station",
-        components: 42,
-        revision: "Rev A",
-        status: "Draft",
-        author: "Charlie Brown",
-        lastModified: "3 days ago",
-    },
-    {
-        id: "BOM-124",
-        name: "PWX Gateway v3.1",
-        components: 22,
-        revision: "Rev B",
-        status: "Archived",
-        author: "Diana Prince",
-        lastModified: "1 week ago",
-    },
-    {
-        id: "BOM-123",
-        name: "Power Supply Module",
-        components: 11,
-        revision: "Rev D",
-        status: "Active",
-        author: "Eve Adams",
-        lastModified: "2 weeks ago",
-    },
-];
+export const defaultBOMs: BOMEntry[] = [];
 
 /** Resolve a BOM for the create/edit page when sessionStorage is missing (e.g. refresh). */
 export function findBomById(id: string): BOMEntry | null {

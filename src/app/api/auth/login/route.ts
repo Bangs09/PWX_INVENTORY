@@ -90,7 +90,12 @@ export async function POST(req: NextRequest) {
         rateLimitMap.delete(ip);
 
         // 5. Build JSON Web Token explicitly
-        const token = await new SignJWT({ userId: user.id, role: user.role, email: user.email })
+        const token = await new SignJWT({ 
+            userId: user.id, 
+            role: user.role, 
+            email: user.email,
+            mustChangePassword: user.must_change_password ? true : false
+        })
             .setProtectedHeader({ alg: "HS256" })
             .setIssuedAt()
             .setExpirationTime("24h")
@@ -108,7 +113,11 @@ export async function POST(req: NextRequest) {
 
         // Resolve successful status without communicating vulnerable session credentials
         return NextResponse.json(
-            { message: "Login successful", role: user.role },
+            { 
+                message: "Login successful", 
+                role: user.role,
+                mustChangePassword: user.must_change_password ? true : false
+            },
             { status: 200 }
         );
     } catch (error) {

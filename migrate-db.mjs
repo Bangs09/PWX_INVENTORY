@@ -1,29 +1,24 @@
-import { Pool } from 'pg';
-import * as dotenv from 'dotenv';
+import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
-dotenv.config({ path: '.env.local' });
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-});
+const dbPath = path.join(process.cwd(), 'database.sqlite');
+const db = new Database(dbPath);
 
 async function migrate() {
   try {
     const schemaSql = fs.readFileSync(path.join(process.cwd(), 'schema.sql'), 'utf-8');
-    console.log("Applying schema migration from schema.sql...");
+    console.log("Applying schema migration from schema.sql to SQLite...");
     
-    // Split by semicolon but be careful with functions/triggers if any (none in this schema)
-    // Actually, pg.query can execute multiple statements separated by semicolons in one call.
-    await pool.query(schemaSql);
+    // SQLite can execute multiple statements separated by semicolons using exec
+    db.exec(schemaSql);
     
     console.log("Migration successful!");
   } catch (err) {
     console.error("Migration failed:", err.message);
     process.exit(1);
   } finally {
-    await pool.end();
+    db.close();
   }
 }
 

@@ -1,9 +1,11 @@
-import { Pool, PoolClient } from 'pg';
+import Database from 'better-sqlite3';
+import path from 'path';
 
-// Initialize the Postgres Connection Pool.
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-});
+// Initialize the SQLite Connection.
+const dbPath = path.join(process.cwd(), 'database.sqlite');
+const db = new Database(dbPath);
+
+db.pragma('journal_mode = WAL');
 
 // --- Types ---
 
@@ -14,8 +16,9 @@ export type User = {
     password_hash: string;
     role: 'admin' | 'co-admin' | 'user';
     status: 'Active' | 'Inactive';
-    created_at?: Date;
-    updated_at?: Date;
+    must_change_password?: boolean | number;
+    created_at?: string;
+    updated_at?: string;
 };
 
 export type StockRequest = {
@@ -27,7 +30,7 @@ export type StockRequest = {
     requested_by: string; // email
     status: 'pending' | 'accepted' | 'declined';
     is_processed: boolean;
-    created_at: Date;
+    created_at: string;
 };
 
 export type Notification = {
@@ -37,7 +40,7 @@ export type Notification = {
     type: string;
     related_id: number | null;
     is_read: boolean;
-    created_at: Date;
+    created_at: string;
 };
 
 export type ComponentItem = {
@@ -50,8 +53,8 @@ export type ComponentItem = {
     warehouse: string;
     tag?: string;
     image?: string;
-    created_at: Date;
-    updated_at: Date;
+    created_at: string;
+    updated_at: string;
 };
 
 export type GatewayItem = {
@@ -61,8 +64,8 @@ export type GatewayItem = {
     location: string;
     quantity: number;
     image?: string;
-    created_at: Date;
-    updated_at: Date;
+    created_at: string;
+    updated_at: string;
 };
 
 export type ActivityLog = {
@@ -71,7 +74,17 @@ export type ActivityLog = {
     detail: string;
     user_name: string;
     item_sku: string | null;
-    created_at: Date;
+    created_at: string;
+};
+
+export type Warehouse = {
+    id: number;
+    name: string;
+    zone: string;
+    total_components: number;
+    status: string;
+    created_at: string;
+    updated_at: string;
 };
 
 // --- Users ---
@@ -79,12 +92,12 @@ export type ActivityLog = {
 export async function getUserByEmail(email: string): Promise<User | null> {
     try {
         const queryText = `
-            SELECT id, name, email, password_hash, role, status
+            SELECT id, name, email, password_hash, role, status, must_change_password
             FROM users
-            WHERE email = $1;
+            WHERE email = ?;
         `;
-        const { rows } = await pool.query(queryText, [email.toLowerCase()]);
-        return rows[0] || null;
+        const row = db.prepare(queryText).get(email.toLowerCase()) as User | undefined;
+        return row || null;
     } catch (error) {
         console.error("[CRITICAL DB EXCEPTION] Failed user lookup:", error);
         throw new Error("Internal Database Error");
@@ -94,12 +107,11 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 export async function getAllUsers(): Promise<Omit<User, 'password_hash'>[]> {
     try {
         const queryText = `
-            SELECT id, name, email, role, status, created_at, updated_at
+            SELECT id, name, email, role, status, must_change_password, created_at, updated_at
             FROM users
             ORDER BY id ASC;
         `;
-        const { rows } = await pool.query(queryText);
-        return rows;
+        return db.prepare(queryText).all() as Omit<User, 'password_hash'>[];
     } catch (error) {
         console.error("Failed fetching all users:", error);
         throw new Error("Internal Database Error");
@@ -110,10 +122,10 @@ export async function updateUserRole(email: string, role: 'admin' | 'co-admin' |
     try {
         const queryText = `
             UPDATE users
-            SET role = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE email = $2;
+            SET role = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE email = ?;
         `;
-        await pool.query(queryText, [role, email.toLowerCase()]);
+        db.prepare(queryText).run(role, email.toLowerCase());
     } catch (error) {
         console.error("Failed updating user role:", error);
         throw new Error("Internal Database Error");
@@ -121,30 +133,25 @@ export async function updateUserRole(email: string, role: 'admin' | 'co-admin' |
 }
 
 export async function updateUserProfile(email: string, updates: { name?: string, role?: string }): Promise<void> {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
+    const executeTx = db.transaction(() => {
         const fields: string[] = [];
         const values: any[] = [];
-        let idx = 1;
 
         if (updates.name !== undefined) {
-            fields.push(`name = $${idx++}`);
+            fields.push(`name = ?`);
             values.push(updates.name);
 
             // Retroactively update activity logs to ensure name is consistent everywhere
             try {
-                await client.query(
-                    `UPDATE activity_logs SET user_name = $1 WHERE user_email = $2`,
-                    [updates.name, email.toLowerCase()]
-                );
+                db.prepare(`UPDATE activity_logs SET user_name = ? WHERE user_email = ?`)
+                  .run(updates.name, email.toLowerCase());
             } catch (err: any) {
                 // Table might not exist yet, suppress error
-                if (err.code !== '42P01') throw err;
+                if (!err.message.includes('no such table')) throw err;
             }
         }
         if (updates.role !== undefined) {
-            fields.push(`role = $${idx++}`);
+            fields.push(`role = ?`);
             values.push(updates.role);
         }
 
@@ -153,18 +160,31 @@ export async function updateUserProfile(email: string, updates: { name?: string,
             const queryText = `
                 UPDATE users
                 SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-                WHERE email = $${idx};
+                WHERE email = ?;
             `;
-            await client.query(queryText, values);
+            db.prepare(queryText).run(...values);
         }
+    });
 
-        await client.query('COMMIT');
+    try {
+        executeTx();
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error("Failed updating user profile:", error);
         throw new Error("Internal Database Error");
-    } finally {
-        client.release();
+    }
+}
+
+export async function updatePassword(email: string, passwordHash: string): Promise<void> {
+    try {
+        const queryText = `
+            UPDATE users
+            SET password_hash = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP
+            WHERE email = ?;
+        `;
+        db.prepare(queryText).run(passwordHash, email.toLowerCase());
+    } catch (error) {
+        console.error("Failed updating password:", error);
+        throw new Error("Internal Database Error");
     }
 }
 
@@ -172,9 +192,9 @@ export async function deleteUserByEmail(email: string): Promise<void> {
     try {
         const queryText = `
             DELETE FROM users
-            WHERE email = $1;
+            WHERE email = ?;
         `;
-        await pool.query(queryText, [email.toLowerCase()]);
+        db.prepare(queryText).run(email.toLowerCase());
     } catch (error) {
         console.error("Failed deleting user:", error);
         throw new Error("Internal Database Error");
@@ -190,15 +210,17 @@ export async function createUser(
 ): Promise<User> {
     try {
         const queryText = `
-            INSERT INTO users (name, email, password_hash, role, status)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, name, email, role, status, created_at, updated_at;
+            INSERT INTO users (name, email, password_hash, role, status, must_change_password)
+            VALUES (?, ?, ?, ?, ?, 1)
+            RETURNING id, name, email, role, status, must_change_password, created_at, updated_at;
         `;
-        const { rows } = await pool.query(queryText, [name, email.toLowerCase(), passwordHash, role, status]);
-        return rows[0];
+        const result = db.prepare(queryText).get(name, email.toLowerCase(), passwordHash, role, status) as User;
+        return result;
     } catch (error: any) {
         console.error("Failed creating user:", error);
-        if (error.code === '23505') throw new Error("User with this email already exists");
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.message.includes('UNIQUE constraint failed')) {
+            throw new Error("User with this email already exists");
+        }
         throw new Error("Internal Database Error");
     }
 }
@@ -207,8 +229,7 @@ export async function createUser(
 
 export async function getInventoryComponents(): Promise<ComponentItem[]> {
     try {
-        const { rows } = await pool.query("SELECT *, image_url AS image FROM inventory_components ORDER BY name ASC");
-        return rows;
+        return db.prepare("SELECT *, image AS image_url FROM inventory_components ORDER BY name ASC").all() as ComponentItem[];
     } catch (error) {
         console.error("Failed fetching components:", error);
         throw new Error("Internal Database Error");
@@ -218,20 +239,20 @@ export async function getInventoryComponents(): Promise<ComponentItem[]> {
 export async function upsertComponent(item: Partial<ComponentItem>): Promise<ComponentItem> {
     try {
         const queryText = `
-            INSERT INTO inventory_components (sku, name, stock, min_stock, category, warehouse, tag, image_url)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO inventory_components (sku, name, stock, min_stock, category, warehouse, tag, image)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (sku, warehouse) 
             DO UPDATE SET 
-                name = EXCLUDED.name,
-                stock = EXCLUDED.stock,
-                min_stock = EXCLUDED.min_stock,
-                category = EXCLUDED.category,
-                tag = EXCLUDED.tag,
-                image_url = COALESCE(EXCLUDED.image_url, inventory_components.image_url),
+                name = excluded.name,
+                stock = excluded.stock,
+                min_stock = excluded.min_stock,
+                category = excluded.category,
+                tag = excluded.tag,
+                image = COALESCE(excluded.image, inventory_components.image),
                 updated_at = CURRENT_TIMESTAMP
-            RETURNING *, image_url AS image;
+            RETURNING *;
         `;
-        const { rows } = await pool.query(queryText, [
+        const result = db.prepare(queryText).get(
             item.sku?.toUpperCase().trim(),
             item.name,
             item.stock,
@@ -240,8 +261,8 @@ export async function upsertComponent(item: Partial<ComponentItem>): Promise<Com
             item.warehouse || "PWX IoT Hub",
             item.tag || "Local",
             item.image
-        ]);
-        return rows[0];
+        ) as ComponentItem;
+        return result;
     } catch (error) {
         console.error("Failed upserting component:", error);
         throw new Error("Internal Database Error");
@@ -250,116 +271,99 @@ export async function upsertComponent(item: Partial<ComponentItem>): Promise<Com
 
 export async function logCriticalStockChange(sku: string, warehouse: string, oldVal: number, newVal: number, changedBy: string): Promise<void> {
     try {
-        // Ensure table exists (Phase 2 Robustness)
-        await pool.query(`
+        // Ensure table exists
+        db.exec(`
             CREATE TABLE IF NOT EXISTS critical_stock_logs (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 item_sku TEXT NOT NULL,
                 warehouse TEXT NOT NULL,
                 old_value INTEGER NOT NULL,
                 new_value INTEGER NOT NULL,
                 changed_by TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_critical_stock_sku ON critical_stock_logs(item_sku);
         `);
 
         const query = `
             INSERT INTO critical_stock_logs (item_sku, warehouse, old_value, new_value, changed_by)
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES (?, ?, ?, ?, ?)
         `;
-        await pool.query(query, [sku.toUpperCase().trim(), warehouse, oldVal, newVal, changedBy]);
+        db.prepare(query).run(sku.toUpperCase().trim(), warehouse, oldVal, newVal, changedBy);
     } catch (error) {
         console.error("Failed to log critical stock change:", error);
     }
 }
 
-/**
- * Performs a partial update on a component identified by SKU and Warehouse.
- */
 export async function updateComponent(sku: string, warehouse: string, updates: Partial<ComponentItem>, changedBy?: string): Promise<ComponentItem> {
     try {
-        // Fetch current values first if we are updating min_stock and need to log
-        // Support 'min' as an alias for 'min_stock' in updates
         const minStockToUpdate = updates.min_stock !== undefined ? updates.min_stock : (updates as any).min;
         let oldMinStock: number | undefined;
         
         if (minStockToUpdate !== undefined && changedBy) {
-            const { rows: currentRows } = await pool.query(
-                "SELECT min_stock FROM inventory_components WHERE sku = $1 AND warehouse = $2",
-                [sku.toUpperCase().trim(), warehouse || "PWX IoT Hub"]
-            );
-            if (currentRows.length > 0) {
-                oldMinStock = currentRows[0].min_stock;
+            const currentObj = db.prepare("SELECT min_stock FROM inventory_components WHERE sku = ? AND warehouse = ?")
+                                 .get(sku.toUpperCase().trim(), warehouse || "PWX IoT Hub") as any;
+            if (currentObj) {
+                oldMinStock = currentObj.min_stock;
             }
         }
 
         const fields: string[] = [];
         const values: any[] = [];
-        let idx = 1;
 
-        if (updates.name !== undefined) { fields.push(`name = $${idx++}`); values.push(updates.name); }
-        if (updates.stock !== undefined) { fields.push(`stock = $${idx++}`); values.push(updates.stock); }
-        if (minStockToUpdate !== undefined) { fields.push(`min_stock = $${idx++}`); values.push(minStockToUpdate); }
-        if (updates.category !== undefined) { fields.push(`category = $${idx++}`); values.push(updates.category); }
-        if (updates.tag !== undefined) { fields.push(`tag = $${idx++}`); values.push(updates.tag); }
-        if (updates.image !== undefined) { fields.push(`image_url = $${idx++}`); values.push(updates.image); }
+        if (updates.name !== undefined) { fields.push(`name = ?`); values.push(updates.name); }
+        if (updates.stock !== undefined) { fields.push(`stock = ?`); values.push(updates.stock); }
+        if (minStockToUpdate !== undefined) { fields.push(`min_stock = ?`); values.push(minStockToUpdate); }
+        if (updates.category !== undefined) { fields.push(`category = ?`); values.push(updates.category); }
+        if (updates.tag !== undefined) { fields.push(`tag = ?`); values.push(updates.tag); }
+        if (updates.image !== undefined) { fields.push(`image = ?`); values.push(updates.image); }
 
         if (fields.length === 0) throw new Error("No fields provided for update");
 
         values.push(sku.toUpperCase().trim());
-        const skuIdx = idx++;
         values.push(warehouse || "PWX IoT Hub");
-        const whIdx = idx++;
 
         const queryText = `
             UPDATE inventory_components 
             SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-            WHERE sku = $${skuIdx} AND warehouse = $${whIdx}
-            RETURNING *, image_url AS image;
+            WHERE sku = ? AND warehouse = ?
+            RETURNING *;
         `;
-        const result = await pool.query(queryText, values);
-        if (result.rows.length === 0) throw new Error("Component not found");
+        const row = db.prepare(queryText).get(...values) as ComponentItem | undefined;
+        if (!row) throw new Error("Component not found");
 
-        // Log the change if min_stock was changed
         if (minStockToUpdate !== undefined && changedBy && oldMinStock !== undefined && oldMinStock !== minStockToUpdate) {
             await logCriticalStockChange(sku, warehouse, oldMinStock, minStockToUpdate, changedBy);
         }
 
-        return result.rows[0];
+        return row;
     } catch (error) {
         console.error("Failed updating component:", error);
         throw error;
     }
 }
 
-
-/**
- * Atomically adjusts component stock by a delta (positive or negative).
- * Prevents race conditions and ensures stock doesn't go below 0.
- */
 export async function adjustComponentStock(sku: string, warehouse: string, delta: number): Promise<ComponentItem> {
     try {
         const queryText = `
             UPDATE inventory_components 
-            SET stock = GREATEST(0, stock + $1),
+            SET stock = MAX(0, stock + ?),
                 updated_at = CURRENT_TIMESTAMP
-            WHERE sku = $2 AND warehouse = $3
+            WHERE sku = ? AND warehouse = ?
             RETURNING *;
         `;
-        const { rows } = await pool.query(queryText, [delta, sku.toUpperCase().trim(), warehouse || "PWX IoT Hub"]);
-        if (rows.length === 0) throw new Error("Component not found in specified warehouse");
-        return rows[0];
+        const row = db.prepare(queryText).get(delta, sku.toUpperCase().trim(), warehouse || "PWX IoT Hub") as ComponentItem | undefined;
+        if (!row) throw new Error("Component not found in specified warehouse");
+        return row;
     } catch (error) {
         console.error("Failed adjusting component stock:", error);
         throw error;
     }
 }
 
-
 export async function deleteComponent(sku: string, warehouse: string): Promise<void> {
     try {
-        await pool.query("DELETE FROM inventory_components WHERE sku = $1 AND warehouse = $2", [sku, warehouse]);
+        db.prepare("DELETE FROM inventory_components WHERE sku = ? AND warehouse = ?").run(sku, warehouse);
     } catch (error) {
         console.error("Failed deleting component:", error);
         throw new Error("Internal Database Error");
@@ -370,8 +374,7 @@ export async function deleteComponent(sku: string, warehouse: string): Promise<v
 
 export async function getGateways(): Promise<GatewayItem[]> {
     try {
-        const { rows } = await pool.query("SELECT *, image_url AS image FROM gateways ORDER BY name ASC");
-        return rows;
+        return db.prepare("SELECT * FROM gateways ORDER BY name ASC").all() as GatewayItem[];
     } catch (error) {
         console.error("Failed fetching gateways:", error);
         throw new Error("Internal Database Error");
@@ -381,25 +384,25 @@ export async function getGateways(): Promise<GatewayItem[]> {
 export async function upsertGateway(gw: Partial<GatewayItem>): Promise<GatewayItem> {
     try {
         const queryText = `
-            INSERT INTO gateways (sku, name, location, quantity, image_url)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO gateways (sku, name, location, quantity, image)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (sku) 
             DO UPDATE SET 
-                name = EXCLUDED.name,
-                location = EXCLUDED.location,
-                quantity = EXCLUDED.quantity,
-                image_url = COALESCE(EXCLUDED.image_url, gateways.image_url),
+                name = excluded.name,
+                location = excluded.location,
+                quantity = excluded.quantity,
+                image = COALESCE(excluded.image, gateways.image),
                 updated_at = CURRENT_TIMESTAMP
-            RETURNING *, image_url AS image;
+            RETURNING *;
         `;
-        const { rows } = await pool.query(queryText, [
+        const row = db.prepare(queryText).get(
             gw.sku?.toUpperCase().trim(),
             gw.name,
             gw.location || "PWX IoT Hub",
             gw.quantity,
             gw.image
-        ]);
-        return rows[0];
+        ) as GatewayItem;
+        return row;
     } catch (error) {
         console.error("Failed upserting gateway:", error);
         throw new Error("Internal Database Error");
@@ -408,29 +411,25 @@ export async function upsertGateway(gw: Partial<GatewayItem>): Promise<GatewayIt
 
 export async function deleteGateway(sku: string): Promise<void> {
     try {
-        await pool.query("DELETE FROM gateways WHERE sku = $1", [sku]);
+        db.prepare("DELETE FROM gateways WHERE sku = ?").run(sku);
     } catch (error) {
         console.error("Failed deleting gateway:", error);
         throw new Error("Internal Database Error");
     }
 }
 
-/**
- * Atomically adjusts gateway quantity by a delta (positive or negative).
- * Prevents race conditions.
- */
 export async function adjustGatewayQuantity(sku: string, delta: number): Promise<GatewayItem> {
     try {
         const queryText = `
             UPDATE gateways 
-            SET quantity = GREATEST(0, quantity + $1),
+            SET quantity = MAX(0, quantity + ?),
                 updated_at = CURRENT_TIMESTAMP
-            WHERE sku = $2
+            WHERE sku = ?
             RETURNING *;
         `;
-        const { rows } = await pool.query(queryText, [delta, sku.toUpperCase().trim()]);
-        if (rows.length === 0) throw new Error("Gateway not found");
-        return rows[0];
+        const row = db.prepare(queryText).get(delta, sku.toUpperCase().trim()) as GatewayItem | undefined;
+        if (!row) throw new Error("Gateway not found");
+        return row;
     } catch (error) {
         console.error("Failed adjusting gateway quantity:", error);
         throw error;
@@ -446,45 +445,45 @@ export async function createStockRequest(
     requestedQty: number,
     requestedBy: string
 ): Promise<StockRequest> {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
+    const executeTx = db.transaction(() => {
         const queryText = `
             INSERT INTO stock_requests (type, item_sku, item_name, requested_qty, requested_by)
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING *;
         `;
-        const { rows } = await client.query(queryText, [
+        const newRequest = db.prepare(queryText).get(
             type,
             itemSku.toUpperCase().trim(),
             itemName,
             requestedQty,
             requestedBy.toLowerCase().trim()
-        ]);
-        const newRequest = rows[0];
+        ) as any;
 
-        // Create notification for admins
         const notificationMsg = `${requestedBy} requested ${requestedQty} units of ${itemName} (${itemSku})`;
-        await client.query(`
+        db.prepare(`
             INSERT INTO notifications (message, type, related_id)
-            VALUES ($1, $2, $3)
-        `, [notificationMsg, 'stock_request', newRequest.id]);
+            VALUES (?, ?, ?)
+        `).run(notificationMsg, 'stock_request', newRequest.id);
 
-        await client.query('COMMIT');
-        return newRequest;
+        // Map sqlite outputs nicely
+        return {
+            ...newRequest,
+            is_processed: Boolean(newRequest.is_processed)
+        };
+    });
+
+    try {
+        return executeTx();
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error("Failed creating stock request:", error);
         throw new Error("Internal Database Error");
-    } finally {
-        client.release();
     }
 }
 
 export async function getStockRequests(): Promise<StockRequest[]> {
     try {
-        const { rows } = await pool.query("SELECT * FROM stock_requests ORDER BY created_at DESC");
-        return rows;
+        const rows = db.prepare("SELECT * FROM stock_requests ORDER BY created_at DESC").all() as any[];
+        return rows.map(r => ({ ...r, is_processed: Boolean(r.is_processed) }));
     } catch (error) {
         console.error("Failed fetching stock requests:", error);
         throw new Error("Internal Database Error");
@@ -492,104 +491,83 @@ export async function getStockRequests(): Promise<StockRequest[]> {
 }
 
 export async function updateStockRequestStatus(id: number, status: string, processedBy?: string): Promise<void> {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
+    const executeTx = db.transaction(() => {
+        const reqRow = db.prepare("SELECT * FROM stock_requests WHERE id = ?").get(id) as any;
+        if (!reqRow) throw new Error("Request not found");
+        
+        const request = { ...reqRow, is_processed: Boolean(reqRow.is_processed) };
 
-        // 1. Fetch the request
-        const { rows: reqRows } = await client.query("SELECT * FROM stock_requests WHERE id = $1 FOR UPDATE", [id]);
-        if (reqRows.length === 0) throw new Error("Request not found");
-        const request = reqRows[0] as StockRequest;
-
-        // Prevent double processing
         if (request.is_processed && status === 'accepted') {
             throw new Error("Request already processed and accepted.");
         }
 
-        // 2. If accepting, attempt to deduct inventory
         if (status === 'accepted' && !request.is_processed) {
             const absQty = Math.abs(request.requested_qty);
-            console.log(`[STOCK_DEDUCTION_DEBUG] Processing Request ID: ${id}`);
-            console.log(`[STOCK_DEDUCTION_DEBUG] Item SKU: ${request.item_sku}, Type: ${request.type}`);
-            console.log(`[STOCK_DEDUCTION_DEBUG] Original Qty: ${request.requested_qty}, Normalized Qty: ${absQty}`);
 
             if (request.type === 'component') {
-                // We need to know which warehouse. Since the request currently doesn't store warehouse, 
-                // we'll assume the request is for the SKU in any warehouse that has stock.
-                const { rows: compRows } = await client.query(
-                    "SELECT id, sku, stock, warehouse FROM inventory_components WHERE sku = $1 AND stock >= $2 LIMIT 1",
-                    [request.item_sku, absQty]
-                );
+                const compObj = db.prepare("SELECT id, sku, stock, warehouse FROM inventory_components WHERE sku = ? AND stock >= ? LIMIT 1")
+                                 .get(request.item_sku, absQty) as any;
 
-                if (compRows.length === 0) {
-                    const { rows: allWhRows } = await client.query(
-                        "SELECT warehouse, stock FROM inventory_components WHERE sku = $1",
-                        [request.item_sku]
-                    );
-                    const whStocks = allWhRows.map(r => `${r.warehouse}: ${r.stock}`).join(', ') || 'N/A';
-                    console.error(`[STOCK_DEDUCTION_FAILED] Insufficient stock for ${request.item_sku}. Needed: ${absQty}. Available: [${whStocks}]`);
+                if (!compObj) {
+                    const allWhRows = db.prepare("SELECT warehouse, stock FROM inventory_components WHERE sku = ?")
+                                        .all(request.item_sku) as any[];
+                    const whStocks = allWhRows.map((r: any) => `${r.warehouse}: ${r.stock}`).join(', ') || 'N/A';
                     throw new Error(`Insufficient stock for ${request.item_sku}. Needed: ${absQty}. Available in warehouses: ${whStocks}`);
                 }
 
-                const comp = compRows[0];
-                console.log(`[STOCK_DEDUCTION_SUCCESS] Deducting ${absQty} units from ${comp.sku} in ${comp.warehouse} (Stock before: ${comp.stock})`);
-                await client.query(
-                    "UPDATE inventory_components SET stock = stock - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-                    [absQty, comp.id]
-                );
+                db.prepare("UPDATE inventory_components SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                  .run(absQty, compObj.id);
             } else {
-                const { rows: gwRows } = await client.query(
-                    "SELECT quantity FROM gateways WHERE sku = $1 AND quantity >= $2",
-                    [request.item_sku, absQty]
-                );
+                const gwObj = db.prepare("SELECT quantity FROM gateways WHERE sku = ? AND quantity >= ?")
+                                .get(request.item_sku, absQty) as any;
 
-                if (gwRows.length === 0) {
-                    const { rows: currGw } = await client.query("SELECT quantity FROM gateways WHERE sku = $1", [request.item_sku]);
-                    const currentQty = currGw.length > 0 ? currGw[0].quantity : 0;
-                    console.error(`[STOCK_DEDUCTION_FAILED] Insufficient gateway stock for ${request.item_sku}. Needed: ${absQty}, Available: ${currentQty}`);
+                if (!gwObj) {
+                    const currGw = db.prepare("SELECT quantity FROM gateways WHERE sku = ?").get(request.item_sku) as any;
+                    const currentQty = currGw ? currGw.quantity : 0;
                     throw new Error(`Insufficient gateway stock for ${request.item_sku}. Needed: ${absQty}, Available: ${currentQty}`);
                 }
 
-                console.log(`[STOCK_DEDUCTION_SUCCESS] Deducting ${absQty} units from Gateway ${request.item_sku} (Stock before: ${gwRows[0].quantity})`);
-                await client.query(
-                    "UPDATE gateways SET quantity = quantity - $1, updated_at = CURRENT_TIMESTAMP WHERE sku = $2",
-                    [absQty, request.item_sku]
-                );
+                db.prepare("UPDATE gateways SET quantity = quantity - ?, updated_at = CURRENT_TIMESTAMP WHERE sku = ?")
+                  .run(absQty, request.item_sku);
             }
         }
 
-        // 3. Update the request status and set is_processed
-        await client.query(
-            "UPDATE stock_requests SET status = $1, is_processed = TRUE WHERE id = $2",
-            [status, id]
-        );
+        db.prepare("UPDATE stock_requests SET status = ?, is_processed = 1 WHERE id = ?").run(status, id);
 
         if (processedBy) {
+            // Because logActivity is async and relies on sseManager, we'll delay it or let it execute separately.
+            // But we can synchronously write the activity log row here.
             const actionStr = status === 'accepted' ? 'Stock Disbursed' : 'Request Declined';
             const detailStr = status === 'accepted' 
                 ? `${request.requested_qty}x ${request.item_name} disbursed for request`
                 : `${request.requested_qty}x ${request.item_name} request declined`;
-            await logActivity(actionStr, detailStr, processedBy, request.item_sku);
+            
+            let userName = processedBy;
+            if (processedBy.includes('@')) {
+                const userRow = db.prepare("SELECT name FROM users WHERE email = ?").get(processedBy) as any;
+                if (userRow && userRow.name) userName = userRow.name;
+                else userName = processedBy.split('@')[0];
+            }
+            db.prepare(`
+                INSERT INTO activity_logs (action, detail, user_name, user_email, item_sku)
+                VALUES (?, ?, ?, ?, ?)
+            `).run(actionStr, detailStr, userName, processedBy, request.item_sku);
         }
 
-        // 4. Notify the user
-        const { rows: userRows } = await client.query("SELECT id FROM users WHERE email = $1", [request.requested_by]);
-        if (userRows.length > 0) {
-            const userId = userRows[0].id;
+        const userObj = db.prepare("SELECT id FROM users WHERE email = ?").get(request.requested_by) as any;
+        if (userObj) {
             const msg = `Your request for ${request.requested_qty}x ${request.item_name} has been ${status}.`;
-            await client.query(
-                "INSERT INTO notifications (user_id, message, type, related_id) VALUES ($1, $2, $3, $4)",
-                [userId, msg, 'request_update', id]
-            );
+            db.prepare(`
+                INSERT INTO notifications (user_id, message, type, related_id) VALUES (?, ?, ?, ?)
+            `).run(userObj.id, msg, 'request_update', id);
         }
+    });
 
-        await client.query('COMMIT');
+    try {
+        executeTx();
     } catch (error: any) {
-        await client.query('ROLLBACK');
         console.error("Failed updating stock request status:", error.message);
         throw error;
-    } finally {
-        client.release();
     }
 }
 
@@ -597,10 +575,10 @@ export async function updateStockRequestStatus(id: number, status: string, proce
 
 export async function createNotification(message: string, type: string, relatedId: number | null = null, userId: number | null = null): Promise<void> {
     try {
-        await pool.query(`
+        db.prepare(`
             INSERT INTO notifications (message, type, related_id, user_id)
-            VALUES ($1, $2, $3, $4)
-        `, [message, type, relatedId, userId]);
+            VALUES (?, ?, ?, ?)
+        `).run(message, type, relatedId, userId);
     } catch (error) {
         console.error("Failed creating notification:", error);
     }
@@ -608,11 +586,11 @@ export async function createNotification(message: string, type: string, relatedI
 
 export async function getUnreadNotifications(userId: number | null = null): Promise<Notification[]> {
     try {
-        let query = "SELECT * FROM notifications WHERE is_read = FALSE ";
+        let query = "SELECT * FROM notifications WHERE is_read = 0 ";
         const params: any[] = [];
 
-        if (userId) {
-            query += "AND (user_id = $1 OR user_id IS NULL) ";
+        if (userId !== null) {
+            query += "AND (user_id = ? OR user_id IS NULL) ";
             params.push(userId);
         } else {
             query += "AND user_id IS NULL ";
@@ -620,8 +598,8 @@ export async function getUnreadNotifications(userId: number | null = null): Prom
 
         query += "ORDER BY created_at DESC";
 
-        const { rows } = await pool.query(query, params);
-        return rows;
+        const rows = db.prepare(query).all(...params) as any[];
+        return rows.map((r: any) => ({ ...r, is_read: Boolean(r.is_read) }));
     } catch (error) {
         console.error("Failed fetching notifications:", error);
         throw new Error("Internal Database Error");
@@ -630,7 +608,7 @@ export async function getUnreadNotifications(userId: number | null = null): Prom
 
 export async function markNotificationAsRead(id: number): Promise<void> {
     try {
-        await pool.query("UPDATE notifications SET is_read = TRUE WHERE id = $1", [id]);
+        db.prepare("UPDATE notifications SET is_read = 1 WHERE id = ?").run(id);
     } catch (error) {
         console.error("Failed marking notification as read:", error);
         throw new Error("Internal Database Error");
@@ -639,11 +617,11 @@ export async function markNotificationAsRead(id: number): Promise<void> {
 
 export async function markAllNotificationsAsRead(userId?: number): Promise<void> {
     try {
-        const query = userId 
-            ? "UPDATE notifications SET is_read = TRUE WHERE user_id = $1 OR user_id IS NULL"
-            : "UPDATE notifications SET is_read = TRUE WHERE user_id IS NULL";
-        const params = userId ? [userId] : [];
-        await pool.query(query, params);
+        if (userId !== undefined) {
+            db.prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? OR user_id IS NULL").run(userId);
+        } else {
+            db.prepare("UPDATE notifications SET is_read = 1 WHERE user_id IS NULL").run();
+        }
     } catch (error) {
         console.error("Failed marking all notifications as read:", error);
         throw new Error("Internal Database Error");
@@ -656,40 +634,38 @@ export async function logActivity(action: string, detail: string, emailOrName: s
     try {
         let userName = emailOrName;
         if (emailOrName.includes('@')) {
-            const { rows } = await pool.query("SELECT name FROM users WHERE email = $1", [emailOrName]);
-            if (rows.length > 0 && rows[0].name) {
-                userName = rows[0].name;
+            const userRow = db.prepare("SELECT name FROM users WHERE email = ?").get(emailOrName) as any;
+            if (userRow && userRow.name) {
+                userName = userRow.name;
             } else {
                 userName = emailOrName.split('@')[0];
             }
         }
 
-        // Ensure the table schema has our new columns
-        await pool.query(`
+        db.exec(`
             CREATE TABLE IF NOT EXISTS activity_logs (
-                id SERIAL PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 action TEXT NOT NULL,
                 detail TEXT NOT NULL,
-                user_name VARCHAR(255),
-                user_email VARCHAR(255),
-                icon_type VARCHAR(255),
-                color_class VARCHAR(255),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                user_name TEXT,
+                user_email TEXT,
+                icon_type TEXT,
+                color_class TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                item_sku TEXT
             );
-            ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS item_sku TEXT;
             CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_activity_logs_item_sku ON activity_logs(item_sku);
         `);
 
-        // We map the incoming emailOrName to both user_name and user_email
-        const { rows } = await pool.query(`
+        const row = db.prepare(`
             INSERT INTO activity_logs (action, detail, user_name, user_email, item_sku)
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING *
-        `, [action, detail, userName, emailOrName, itemSku]);
+        `).get(action, detail, userName, emailOrName, itemSku) as any;
         
         const { sseManager } = require('./sse-clients');
-        sseManager.broadcast("activity_update", rows[0]);
+        sseManager.broadcast("activity_update", row);
     } catch (error) {
         console.error("Failed creating activity log:", error);
     }
@@ -697,11 +673,9 @@ export async function logActivity(action: string, detail: string, emailOrName: s
 
 export async function getActivityLogs(): Promise<ActivityLog[]> {
     try {
-        const { rows } = await pool.query("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 200");
-        return rows;
-    } catch (error) {
-        // Table might not exist yet if no action has happened
-        if ((error as any).code === '42P01') {
+        return db.prepare("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 200").all() as ActivityLog[];
+    } catch (error: any) {
+        if (error.message.includes('no such table')) {
             return [];
         }
         console.error("Failed fetching activity logs:", error);
@@ -711,10 +685,9 @@ export async function getActivityLogs(): Promise<ActivityLog[]> {
 
 export async function getItemActivityLogs(itemSku: string): Promise<ActivityLog[]> {
     try {
-        const { rows } = await pool.query("SELECT * FROM activity_logs WHERE item_sku = $1 ORDER BY created_at DESC", [itemSku]);
-        return rows;
-    } catch (error) {
-        if ((error as any).code === '42P01') {
+        return db.prepare("SELECT * FROM activity_logs WHERE item_sku = ? ORDER BY created_at DESC").all(itemSku) as ActivityLog[];
+    } catch (error: any) {
+        if (error.message.includes('no such table')) {
             return [];
         }
         console.error("Failed fetching item activity logs:", error);
@@ -739,18 +712,60 @@ export type DashboardSummary = {
     };
 };
 
+// --- Warehouses ---
+
+export async function getWarehouses(): Promise<Warehouse[]> {
+    try {
+        return db.prepare("SELECT * FROM warehouses ORDER BY name ASC").all() as Warehouse[];
+    } catch (error) {
+        console.error("Failed fetching warehouses:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function createWarehouse(data: { name: string; zone: string; total_components: number; status: string }): Promise<void> {
+    try {
+        db.prepare(`
+            INSERT INTO warehouses (name, zone, total_components, status) 
+            VALUES (?, ?, ?, ?)
+        `).run(data.name, data.zone, data.total_components, data.status);
+    } catch (error) {
+        console.error("Failed creating warehouse:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function updateWarehouse(id: number, data: { name: string; zone: string; total_components: number; status: string }): Promise<void> {
+    try {
+        db.prepare(`
+            UPDATE warehouses 
+            SET name = ?, zone = ?, total_components = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).run(data.name, data.zone, data.total_components, data.status, id);
+    } catch (error) {
+        console.error("Failed updating warehouse:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function deleteWarehouse(id: number): Promise<void> {
+    try {
+        db.prepare("DELETE FROM warehouses WHERE id = ?").run(id);
+    } catch (error) {
+        console.error("Failed deleting warehouse:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
 export async function getDashboardSummary(): Promise<DashboardSummary> {
     try {
-        const [gwRes, compRes] = await Promise.all([
-            pool.query("SELECT name, location, type FROM gateways ORDER BY name ASC"),
-            pool.query("SELECT * FROM inventory_components ORDER BY name ASC")
-        ]);
-
-        const allGateways = gwRes.rows;
-        const allComponents = compRes.rows as ComponentItem[];
+        const allGateways = db.prepare("SELECT name, location, type FROM gateways ORDER BY name ASC").all() as any[];
+        const allComponents = db.prepare("SELECT * FROM inventory_components ORDER BY name ASC").all() as ComponentItem[];
+        const warehouseTotal = db.prepare("SELECT SUM(total_components) as total FROM warehouses").get() as { total: number | null };
+        const componentsTotalSum = warehouseTotal.total || 0;
+        
         const criticalAlerts = allComponents.filter(c => c.stock <= c.min_stock);
 
-        // 1. Group Gateways by Type
         const gwGroup: Record<string, { name: string; count: number; items: any[] }> = {};
         const gwTypes = ['Femto Outdoor', 'Gateway 868 Indoor & Outdoor', 'Gateway 915 Indoor & Outdoor'];
         gwTypes.forEach(t => gwGroup[t] = { name: t, count: 0, items: [] });
@@ -762,7 +777,6 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
             gwGroup[type].items.push({ name: g.name, location: g.location });
         });
 
-        // 2. Group Components by Category
         const compGroup: Record<string, { name: string; count: number; items: any[] }> = {};
         allComponents.forEach(c => {
             const cat = c.category || 'Uncategorized';
@@ -771,7 +785,6 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
             compGroup[cat].items.push({ name: c.name, sku: c.sku, stock: c.stock });
         });
 
-        // 3. Group Critical Alerts by Category
         const alertGroup: Record<string, { name: string; count: number; items: any[] }> = {};
         criticalAlerts.forEach(c => {
             const cat = c.category || 'Uncategorized';
@@ -786,7 +799,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
                 categories: Object.values(gwGroup).filter(g => g.count > 0)
             },
             components: {
-                total: allComponents.length,
+                total: componentsTotalSum,
                 categories: Object.values(compGroup).sort((a,b) => b.count - a.count)
             },
             alerts: {

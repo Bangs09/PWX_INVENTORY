@@ -110,49 +110,11 @@ function getActivityDisplay(action: string) {
 
 // Stats data moved inside component to access state
 
-const criticalComponents = [
-    { name: "Enclosure Dimension 168X149 mm", sku: "DIM-168-149", stock: 10, min: 50, warehouse: "PWX IoT Hub", category: "Enclosure", status: "Critical" },
-    { name: "2 hole C Clamp 1-1/2' RGD", sku: "HW-CCLAMP-15", stock: 5, min: 100, warehouse: "PWX IoT Hub", category: "Accessories", status: "Critical" },
-    { name: "Outlet 4- Gang (For Extension)", sku: "ELEC-OUT-4G", stock: 8, min: 100, warehouse: "Jenny's", category: "Accessories", status: "Critical" },
-    { name: "Tofu Heatsink (White)", sku: "HS-TOFU-WHT", stock: 2, min: 100, warehouse: "PWX IoT Hub", category: "Hardware", status: "Critical" },
-    { name: "M5 Bolts and Nuts", sku: "HW-M5-BN", stock: 10, min: 300, warehouse: "Jenny's", category: "Hardware", status: "Critical" },
-    { name: "CAT5e Cable", sku: "CBL-CAT5E", stock: 15, min: 200, warehouse: "PWX IoT Hub", category: "Networking", status: "Critical" }
-];
-
 const chartData = {
-    Today: [
-        { name: "08:00", w1: 2, w2: 35 },
-        { name: "10:00", w1: 10, w2: 25 },
-        { name: "12:00", w1: 8, w2: 35 },
-        { name: "14:00", w1: 8, w2: 18 },
-        { name: "16:00", w1: 3, w2: 30 },
-        { name: "18:00", w1: 4, w2: 35 },
-    ],
-    "This Month": [
-        { name: "Week 1", w1: 15, w2: 35 },
-        { name: "Week 2", w1: 20, w2: 50 },
-        { name: "Week 3", w1: 12, w2: 25 },
-        { name: "Week 4", w1: 8, w2: 45 },
-    ],
-    "This Year": [
-        { name: "Jan", w1: 16, w2: 50 },
-        { name: "Feb", w1: 14, w2: 70 },
-        { name: "Mar", w1: 9, w2: 35 },
-        { name: "Apr", w1: 15, w2: 80 },
-        { name: "May", w1: 24, w2: 60 },
-        { name: "Jun", w1: 17, w2: 65 },
-        { name: "Jul", w1: 20, w2: 70 },
-        { name: "Aug", w1: 13, w2: 45 },
-    ],
+    Today: [],
+    "This Month": [],
+    "This Year": [],
 };
-
-
-const notificationsList = [
-    { id: 1, title: "Low Stock Alert", desc: "DIM-168-149 is running critically low (10 left).", time: "10m ago", unread: true },
-    { id: 2, title: "New Gateway", desc: "Gateway 915 Outdoor has been registered.", time: "1h ago", unread: true },
-    { id: 3, title: "BOM Approved", desc: "PWX Gateway v3.3 Rev A was approved.", time: "2h ago", unread: false },
-    { id: 4, title: "Location Added", desc: "PWX IoT Hub — Zone B was added.", time: "1d ago", unread: false },
-];
 
 
 // recentActivity is now dynamic state in DashboardPage
@@ -256,10 +218,14 @@ export default function DashboardPage() {
     const [stats, setStats] = useState<DashboardSummary | null>(null);
     const [period, setPeriod] = useState<keyof typeof chartData>("Today");
     const [activityLogs, setActivityLogs] = useState<any[]>([]);
+    const [localBoms, setLocalBoms] = useState<any[]>([]);
 
     const gatewayColors = ["#3b82f6", "#60a5fa", "#93c5fd"];
     const componentColors = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"];
     const alertColors = ["#f43f5e", "#fb7185", "#fda4af", "#fecdd3"];
+
+    const activeBoms = localBoms.filter(b => b.isDraft !== true).length;
+    const draftBoms = localBoms.filter(b => b.isDraft === true).length;
 
     const statsData = [
         {
@@ -276,7 +242,7 @@ export default function DashboardPage() {
                     color: gatewayColors[i % gatewayColors.length],
                     breakdown: cat.items.map(g => ({ name: g.name, detail: g.location }))
                 })) 
-                : [{ name: "No Gateways", value: 1, color: "#f1f5f9", breakdown: [] }]
+                : [{ name: "No Gateways", value: 1, displayValue: "0", color: "#f1f5f9", breakdown: [] }]
         },
         {
             label: "Components",
@@ -292,19 +258,21 @@ export default function DashboardPage() {
                     color: componentColors[i % componentColors.length],
                     breakdown: cat.items.slice(0, 20).map(c => ({ name: c.name, detail: c.sku, value: c.stock }))
                 })) 
-                : [{ name: "No Components", value: 1, color: "#f1f5f9", breakdown: [] }]
+                : [{ name: "No Components", value: 1, displayValue: "0", color: "#f1f5f9", breakdown: [] }]
         },
         {
             label: "Total BOMs",
-            value: "5",
+            value: localBoms.length.toString() || "0",
             icon: FileStack,
             iconColor: "text-amber-500",
             bgColor: "bg-amber-100/80",
             href: "/bom",
-            data: [
-                { name: "Active", value: 3, color: "#f59e0b", breakdown: [{ name: "Active BOMs", value: 3 }] },
-                { name: "Draft", value: 2, color: "#fde68a", breakdown: [{ name: "Draft BOMs", value: 2 }] },
-            ]
+            data: localBoms.length > 0 
+                ? [
+                    { name: "Active", value: activeBoms, color: "#f59e0b", breakdown: [{ name: "Active BOMs", value: activeBoms }] },
+                    { name: "Draft", value: draftBoms, color: "#fde68a", breakdown: [{ name: "Draft BOMs", value: draftBoms }] },
+                ]
+                : [{ name: "No BOMs", value: 1, displayValue: "0", color: "#f1f5f9", breakdown: [] }]
         },
         {
             label: "Critical Alerts",
@@ -352,6 +320,13 @@ export default function DashboardPage() {
     useEffect(() => {
         fetchStats();
         fetchLogs();
+
+        const storedBoms = localStorage.getItem("pocketworx_boms");
+        if (storedBoms) {
+            try {
+                setLocalBoms(JSON.parse(storedBoms));
+            } catch (e) {}
+        }
 
         const sse = new EventSource("/api/activity/stream");
         sse.addEventListener("activity_update", (e) => {
@@ -479,13 +454,10 @@ export default function DashboardPage() {
                                         {stat.data.map((d) => (
                                             <div key={d.name} className="flex items-center justify-between gap-4 group cursor-default">
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <span 
-                                                        className="h-2 w-2 rounded-full shrink-0 transition-transform group-hover:scale-125" 
-                                                        style={{ backgroundColor: d.color }} 
-                                                    />
+                                                    <span className="h-2 w-2 rounded-full shrink-0 transition-transform group-hover:scale-125" style={{ backgroundColor: d.color }} />
                                                     <span className="text-[10px] font-bold text-neutral-500/80 group-hover:text-neutral-900 transition-colors truncate leading-tight flex-1">{d.name}</span>
                                                 </div>
-                                                <span className="text-xs font-bold text-neutral-900 shrink-0">{d.value}</span>
+                                                <span className="text-xs font-bold text-neutral-900 shrink-0">{d.displayValue !== undefined ? d.displayValue : d.value}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -537,91 +509,98 @@ export default function DashboardPage() {
                     <CardContent className="px-2 pb-2">
                         <div className="h-[350px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart
-                                    data={activeData}
-                                    margin={{
-                                        top: 10,
-                                        right: 30,
-                                        left: 0,
-                                        bottom: 0,
-                                    }}
-                                >
-                                    <defs>
-                                        <linearGradient id="colorW1" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.35} />
-                                            <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                                        </linearGradient>
-                                        <linearGradient id="colorW2" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#2181dbff" stopOpacity={0.35} />
-                                            <stop offset="95%" stopColor="#2181dbff" stopOpacity={0} />
-                                        </linearGradient>
-                                        <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
-                                            <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#f97316" floodOpacity="0.7" />
-                                        </filter>
-                                        <filter id="glowOrange" x="-20%" y="-20%" width="140%" height="140%">
-                                            <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#5adafaff" floodOpacity="0.7" />
-                                        </filter>
-                                    </defs>
-                                    <CartesianGrid
-                                        strokeDasharray="0"
-                                        vertical={false}
-                                        stroke="#f3f4f6"
-                                    />
-                                    <XAxis
-                                        dataKey="name"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                        dy={10}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                        domain={[0, 100]}
-                                        ticks={[0, 20, 40, 60, 80, 100]}
-                                    />
-                                    <Tooltip
-                                        content={<CustomTooltip />}
-                                        cursor={{
-                                            stroke: '#cbd5e1',
-                                            strokeWidth: 1,
-                                            strokeDasharray: '4 4'
-                                        }}
-                                    />
-                                    <Area
-                                        type="monotone"
-                                        name="w1"
-                                        dataKey="w1"
-                                        stroke="#f97316"
-                                        strokeWidth={3}
-                                        fillOpacity={1}
-                                        fill="url(#colorW1)"
-                                        style={{ filter: 'url(#glowRed)' }}
-                                        activeDot={{
-                                            r: 5,
-                                            fill: '#fff',
-                                            stroke: '#f97316',
-                                            strokeWidth: 2
-                                        }}
-                                    />
-                                    <Area
-                                        type="monotone"
-                                        name="w2"
-                                        dataKey="w2"
-                                        stroke="#2181dbff"
-                                        strokeWidth={3}
-                                        fillOpacity={1}
-                                        fill="url(#colorW2)"
-                                        style={{ filter: 'url(#glowOrange)' }}
-                                        activeDot={{
-                                            r: 5,
-                                            fill: '#fff',
-                                            stroke: '#2181dbff',
-                                            strokeWidth: 2
-                                        }}
-                                    />
-                                </AreaChart>
+                                    {activeData && activeData.length > 0 ? (
+                                        <AreaChart
+                                            data={activeData}
+                                            margin={{
+                                                top: 10,
+                                                right: 30,
+                                                left: 0,
+                                                bottom: 0,
+                                            }}
+                                        >
+                                            <defs>
+                                                <linearGradient id="colorW1" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.35} />
+                                                    <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                                                </linearGradient>
+                                                <linearGradient id="colorW2" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#2181dbff" stopOpacity={0.35} />
+                                                    <stop offset="95%" stopColor="#2181dbff" stopOpacity={0} />
+                                                </linearGradient>
+                                                <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
+                                                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#f97316" floodOpacity="0.7" />
+                                                </filter>
+                                                <filter id="glowOrange" x="-20%" y="-20%" width="140%" height="140%">
+                                                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#5adafaff" floodOpacity="0.7" />
+                                                </filter>
+                                            </defs>
+                                            <CartesianGrid
+                                                strokeDasharray="0"
+                                                vertical={false}
+                                                stroke="#f3f4f6"
+                                            />
+                                            <XAxis
+                                                dataKey="name"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                                                dy={10}
+                                            />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                                                domain={[0, 100]}
+                                                ticks={[0, 20, 40, 60, 80, 100]}
+                                            />
+                                            <Tooltip
+                                                content={<CustomTooltip />}
+                                                cursor={{
+                                                    stroke: '#cbd5e1',
+                                                    strokeWidth: 1,
+                                                    strokeDasharray: '4 4'
+                                                }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                name="w1"
+                                                dataKey="w1"
+                                                stroke="#f97316"
+                                                strokeWidth={3}
+                                                fillOpacity={1}
+                                                fill="url(#colorW1)"
+                                                style={{ filter: 'url(#glowRed)' }}
+                                                activeDot={{
+                                                    r: 5,
+                                                    fill: '#fff',
+                                                    stroke: '#f97316',
+                                                    strokeWidth: 2
+                                                }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                name="w2"
+                                                dataKey="w2"
+                                                stroke="#2181dbff"
+                                                strokeWidth={3}
+                                                fillOpacity={1}
+                                                fill="url(#colorW2)"
+                                                style={{ filter: 'url(#glowOrange)' }}
+                                                activeDot={{
+                                                    r: 5,
+                                                    fill: '#fff',
+                                                    stroke: '#2181dbff',
+                                                    strokeWidth: 2
+                                                }}
+                                            />
+                                        </AreaChart>
+                                    ) : (
+                                        <div className="w-full h-full flex flex-col items-center justify-center text-neutral-400">
+                                            <Radio className="h-10 w-10 mb-2 opacity-20" />
+                                            <p className="font-medium text-sm">No Location Data Available</p>
+                                        </div>
+                                    )}
                             </ResponsiveContainer>
                         </div>
                     </CardContent>
