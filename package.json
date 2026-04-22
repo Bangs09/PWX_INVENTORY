@@ -7,7 +7,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "node scripts/migrations/migrate-db.mjs",
+    "db:migrate:all": "node scripts/migrations/migrate-inventory.mjs",
+    "db:fix-admin": "node scripts/fix-admin-password.mjs",
+    "db:check": "node scripts/check-db.mjs",
+    "test": "node scripts/tests/test-schema.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

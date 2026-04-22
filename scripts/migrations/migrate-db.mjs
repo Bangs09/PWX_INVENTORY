@@ -7,8 +7,8 @@ const db = new Database(dbPath);
 
 async function migrate() {
   try {
-    const schemaSql = fs.readFileSync(path.join(process.cwd(), 'schema.sql'), 'utf-8');
-    console.log("Applying schema migration from schema.sql to SQLite...");
+    const schemaSql = fs.readFileSync(path.join(process.cwd(), 'database', 'schema.sql'), 'utf-8');
+    console.log("Applying schema migration from database/schema.sql to SQLite...");
     
     // SQLite can execute multiple statements separated by semicolons using exec
     db.exec(schemaSql);

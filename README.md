@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PWX Inventory Management System
+
+A modern dashboard for managing Packetworx inventory, including components, gateways, and warehouses.
+
+## Project Structure
+
+```
+PWX_INVENTORY/
+├── database/              ← SQL schemas & JSON definitions
+│   ├── schema.sql
+│   ├── db_schema.json
+│   └── gateways_schema.json
+├── scripts/               ← Utility & admin tools
+│   ├── migrations/        ← Database migration scripts
+│   │   ├── migrate-db.mjs
+│   │   ├── migrate-activity.mjs
+│   │   ├── migrate-inventory.mjs
+│   │   └── migrate-tag.mjs
+│   ├── tests/             ← Internal test scripts
+│   │   ├── test-schema.js
+│   │   ├── test-logs.js
+│   │   └── test-gateways-schema.mjs
+│   ├── fix-admin-password.mjs
+│   ├── add-stock-constraints.mjs
+│   └── check-db.mjs
+├── src/                   ← Next.js source code
+│   ├── app/               ← Pages & API routes
+│   ├── components/        ← React components
+│   ├── lib/               ← Shared libraries (DB connection, auth)
+│   └── ...
+├── public/                ← Static assets
+├── database.sqlite        ← Local SQLite database (ignored by git)
+├── package.json           ← Dependencies & scripts
+└── ...
+```
 
 ## Getting Started
 
-First, run the development server:
+### 1. Installation
+
+```bash
+npm install
+```
+
+### 2. Database Setup
+
+Initialize the SQLite database with the current schema:
+
+```bash
+npm run db:migrate
+```
+
+(Optional) Seed with inventory data:
+
+```bash
+npm run db:migrate:all
+```
+
+### 3. Development
+
+Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Management Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run db:migrate`: Applies `database/schema.sql` to the local database.
+- `npm run db:fix-admin`: Resets default admin passwords and ensures admin accounts exist.
+- `npm run db:check`: Checks the database connection and lists users.
+- `npm run test`: Runs basic schema validation tests.
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Framework**: Next.js (App Router)
+- **Database**: SQLite (better-sqlite3)
+- **Styling**: Tailwind CSS
+- **Components**: Shadcn/UI & Radix UI
+- **Icons**: Lucide React
+- **Forms**: React Hook Form & Zod
