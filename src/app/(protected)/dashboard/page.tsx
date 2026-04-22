@@ -47,13 +47,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import {
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-    CartesianGrid,
     Tooltip,
-    ResponsiveContainer,
     PieChart,
     Pie,
     Cell,
@@ -108,14 +102,6 @@ function getActivityDisplay(action: string) {
     return { icon: RefreshCw, color: "bg-amber-100 text-amber-600" };
 }
 
-// Stats data moved inside component to access state
-
-const chartData = {
-    Today: [],
-    "This Month": [],
-    "This Year": [],
-};
-
 
 // recentActivity is now dynamic state in DashboardPage
 
@@ -162,40 +148,6 @@ const DashboardStatTooltip = ({ active, payload }: TooltipProps) => {
     return null;
 };
 
-interface AreaTooltipProps {
-    active?: boolean;
-    payload?: Array<{ name: string; value: number; color: string }>;
-    label?: string;
-}
-
-const CustomTooltip = ({ active, payload, label }: AreaTooltipProps) => {
-    if (active && payload && payload.length) {
-        return (
-            <div className="relative mb-2">
-                <div className="rounded-xl bg-neutral-900 px-4 py-2 shadow-2xl border border-neutral-800">
-                    <p className="text-[10px] font-bold text-neutral-400 mb-1.5 uppercase tracking-wider">{label}</p>
-                    <div className="space-y-1.5">
-                        {[...payload].sort((a, b) => b.value - a.value).map((entry, index: number) => (
-                            <div key={index} className="flex items-center gap-3 justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                                    <span className="text-[11px] font-medium text-white/90">
-                                        {entry.name === "w1" ? "PWX IoT Hub" : "Jenny&apos;s"}
-                                    </span>
-                                </div>
-                                <span className="text-xs font-bold text-white">
-                                    {entry.value}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className="absolute left-1/2 top-full -translate-x-1/2 border-x-[6px] border-t-[8px] border-x-transparent border-t-neutral-900" />
-            </div>
-        );
-    }
-    return null;
-};
 
 export default function DashboardPage() {
     const { role } = useClientRole();
@@ -216,7 +168,6 @@ export default function DashboardPage() {
     const [criticalAlertsFilter, setCriticalAlertsFilter] = useState("All Types");
     const [criticalWarehouseFilter, setCriticalWarehouseFilter] = useState("All Warehouses");
     const [stats, setStats] = useState<DashboardSummary | null>(null);
-    const [period, setPeriod] = useState<keyof typeof chartData>("Today");
     const [activityLogs, setActivityLogs] = useState<any[]>([]);
     const [localBoms, setLocalBoms] = useState<any[]>([]);
 
@@ -242,7 +193,7 @@ export default function DashboardPage() {
                     color: gatewayColors[i % gatewayColors.length],
                     breakdown: cat.items.map(g => ({ name: g.name, detail: g.location }))
                 })) 
-                : [{ name: "No Gateways", value: 1, displayValue: "0", color: "#f1f5f9", breakdown: [] }]
+                : [{ name: "No Gateways", value: 1, displayValue: "", color: "#f1f5f9", breakdown: [] }]
         },
         {
             label: "Components",
@@ -258,7 +209,7 @@ export default function DashboardPage() {
                     color: componentColors[i % componentColors.length],
                     breakdown: cat.items.slice(0, 20).map(c => ({ name: c.name, detail: c.sku, value: c.stock }))
                 })) 
-                : [{ name: "No Components", value: 1, displayValue: "0", color: "#f1f5f9", breakdown: [] }]
+                : [{ name: "No Components", value: 1, displayValue: "", color: "#f1f5f9", breakdown: [] }]
         },
         {
             label: "Total BOMs",
@@ -272,7 +223,7 @@ export default function DashboardPage() {
                     { name: "Active", value: activeBoms, color: "#f59e0b", breakdown: [{ name: "Active BOMs", value: activeBoms }] },
                     { name: "Draft", value: draftBoms, color: "#fde68a", breakdown: [{ name: "Draft BOMs", value: draftBoms }] },
                 ]
-                : [{ name: "No BOMs", value: 1, displayValue: "0", color: "#f1f5f9", breakdown: [] }]
+                : [{ name: "No BOMs", value: 1, displayValue: "", color: "#f1f5f9", breakdown: [] }]
         },
         {
             label: "Critical Alerts",
@@ -291,7 +242,7 @@ export default function DashboardPage() {
                         value: `${a.stock} left`
                     }))
                 })) 
-                : [{ name: "No Alerts", value: 1, color: "#f1f5f9", breakdown: [] }]
+                : [{ name: "No Alerts", value: 1, displayValue: "", color: "#f1f5f9", breakdown: [] }]
         },
     ];
 
@@ -372,7 +323,6 @@ export default function DashboardPage() {
         (item.user || "").toLowerCase().includes(historySearch.toLowerCase())
     );
 
-    const activeData = chartData[period];
     return (
         <div className="space-y-10 min-h-screen bg-transparent">
             {/* Header */}
@@ -457,7 +407,7 @@ export default function DashboardPage() {
                                                     <span className="h-2 w-2 rounded-full shrink-0 transition-transform group-hover:scale-125" style={{ backgroundColor: d.color }} />
                                                     <span className="text-[10px] font-bold text-neutral-500/80 group-hover:text-neutral-900 transition-colors truncate leading-tight flex-1">{d.name}</span>
                                                 </div>
-                                                <span className="text-xs font-bold text-neutral-900 shrink-0">{d.displayValue !== undefined ? d.displayValue : d.value}</span>
+                                                <span className="text-xs font-bold text-neutral-900 shrink-0">{(d as any).displayValue !== undefined ? (d as any).displayValue : d.value}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -480,133 +430,6 @@ export default function DashboardPage() {
                         </Link>
                     );
                 })}
-            </div>
-
-            {/* Content Grid */}
-            <div className="grid gap-6 lg:grid-cols-1">
-                {/* Gateway Components Analytics */}
-                <Card className="border-neutral-200 bg-white shadow-sm overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7 px-6 pt-6">
-                        <div>
-                            <CardTitle className="text-xl font-bold text-neutral-900">Gateway Location</CardTitle>
-                            <CardDescription className="text-neutral-500 mt-1">PWX IoT Hub and Jenny's</CardDescription>
-                        </div>
-                        <div className="flex items-center gap-1 rounded-full bg-neutral-50 p-1 border border-neutral-100">
-                            {(Object.keys(chartData) as Array<keyof typeof chartData>).map((p) => (
-                                <button
-                                    key={p}
-                                    onClick={() => setPeriod(p)}
-                                    className={`px-4 py-1.5 text-xs font-medium transition-all duration-300 rounded-full ${period === p
-                                            ? "bg-[#DFFF1B] text-neutral-900 font-bold shadow-sm"
-                                            : "text-neutral-500 hover:text-neutral-900"
-                                        }`}
-                                >
-                                    {p}
-                                </button>
-                            ))}
-                        </div>
-                    </CardHeader>
-                    <CardContent className="px-2 pb-2">
-                        <div className="h-[350px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                    {activeData && activeData.length > 0 ? (
-                                        <AreaChart
-                                            data={activeData}
-                                            margin={{
-                                                top: 10,
-                                                right: 30,
-                                                left: 0,
-                                                bottom: 0,
-                                            }}
-                                        >
-                                            <defs>
-                                                <linearGradient id="colorW1" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.35} />
-                                                    <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                                                </linearGradient>
-                                                <linearGradient id="colorW2" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#2181dbff" stopOpacity={0.35} />
-                                                    <stop offset="95%" stopColor="#2181dbff" stopOpacity={0} />
-                                                </linearGradient>
-                                                <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
-                                                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#f97316" floodOpacity="0.7" />
-                                                </filter>
-                                                <filter id="glowOrange" x="-20%" y="-20%" width="140%" height="140%">
-                                                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#5adafaff" floodOpacity="0.7" />
-                                                </filter>
-                                            </defs>
-                                            <CartesianGrid
-                                                strokeDasharray="0"
-                                                vertical={false}
-                                                stroke="#f3f4f6"
-                                            />
-                                            <XAxis
-                                                dataKey="name"
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                                dy={10}
-                                            />
-                                            <YAxis
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                                domain={[0, 100]}
-                                                ticks={[0, 20, 40, 60, 80, 100]}
-                                            />
-                                            <Tooltip
-                                                content={<CustomTooltip />}
-                                                cursor={{
-                                                    stroke: '#cbd5e1',
-                                                    strokeWidth: 1,
-                                                    strokeDasharray: '4 4'
-                                                }}
-                                            />
-                                            <Area
-                                                type="monotone"
-                                                name="w1"
-                                                dataKey="w1"
-                                                stroke="#f97316"
-                                                strokeWidth={3}
-                                                fillOpacity={1}
-                                                fill="url(#colorW1)"
-                                                style={{ filter: 'url(#glowRed)' }}
-                                                activeDot={{
-                                                    r: 5,
-                                                    fill: '#fff',
-                                                    stroke: '#f97316',
-                                                    strokeWidth: 2
-                                                }}
-                                            />
-                                            <Area
-                                                type="monotone"
-                                                name="w2"
-                                                dataKey="w2"
-                                                stroke="#2181dbff"
-                                                strokeWidth={3}
-                                                fillOpacity={1}
-                                                fill="url(#colorW2)"
-                                                style={{ filter: 'url(#glowOrange)' }}
-                                                activeDot={{
-                                                    r: 5,
-                                                    fill: '#fff',
-                                                    stroke: '#2181dbff',
-                                                    strokeWidth: 2
-                                                }}
-                                            />
-                                        </AreaChart>
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center text-neutral-400">
-                                            <Radio className="h-10 w-10 mb-2 opacity-20" />
-                                            <p className="font-medium text-sm">No Location Data Available</p>
-                                        </div>
-                                    )}
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-
             </div>
 
             {/* Recent Activity */}
