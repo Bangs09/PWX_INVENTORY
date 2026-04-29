@@ -12,13 +12,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { useClientRole } from "@/lib/use-client-role";
 import { Badge } from "@/components/ui/badge";
-import { Warehouse as WarehouseIcon, Search, Filter, MapPin, Package, Trash2, Loader2 } from "lucide-react";
+import { Warehouse as WarehouseIcon, Search, Filter, MapPin, Package, Trash2, Edit2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
@@ -28,10 +29,31 @@ export default function WarehousePage() {
     const [search, setSearch] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     
-    // Components Dialog State
     const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
     const [componentSearch, setComponentSearch] = useState("");
     const [locationComponents, setLocationComponents] = useState<any[]>([]);
+    const [isFetchingSub, setIsFetchingSub] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+    const [editLocation, setEditLocation] = useState<WarehouseLocation | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editZone, setEditZone] = useState("");
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+    const fetchLocationComponents = async (whName: string) => {
+        try {
+            setIsFetchingSub(true);
+            const res = await fetch("/api/inventory/components");
+            if (res.ok) {
+                const all = await res.json();
+                const filtered = all.filter((c: any) => c.warehouse === whName);
+                setLocationComponents(filtered);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsFetchingSub(false);
+        }
+    };
 
     const fetchWarehouses = async () => {
         try {
@@ -40,6 +62,11 @@ export default function WarehousePage() {
             if (res.ok) {
                 const data = await res.json();
                 setLocations(data);
+                
+                // If a location is selected, also refresh its specific component list
+                if (selectedLocation) {
+                    fetchLocationComponents(selectedLocation);
+                }
             }
         } catch (error) {
             console.error(error);
@@ -51,6 +78,8 @@ export default function WarehousePage() {
 
     useEffect(() => {
         fetchWarehouses();
+        const interval = setInterval(fetchWarehouses, 5000); // 5s Real-time polling
+        return () => clearInterval(interval);
     }, []);
 
     const handleAddLocation = async (newLocation: WarehouseLocation) => {
@@ -70,11 +99,15 @@ export default function WarehousePage() {
     const handleImportLocations = async (newLocations: WarehouseLocation[]) => {
         try {
             for (const loc of newLocations) {
-                await fetch('/api/warehouses', {
+                const res = await fetch('/api/warehouses', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(loc)
                 });
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.error || `Failed to import ${loc.name}`);
+                }
             }
             await fetchWarehouses();
         } catch (error) {
@@ -82,10 +115,7 @@ export default function WarehousePage() {
         }
     };
 
-    const handleDeleteWarehouse = async (id: number, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!confirm("Are you sure you want to delete this warehouse location?")) return;
-        
+    const handleDeleteWarehouse = async (id: number) => {
         try {
             const res = await fetch(`/api/warehouses/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error("Failed to delete");
@@ -93,6 +123,32 @@ export default function WarehousePage() {
             await fetchWarehouses();
         } catch (error) {
             toast.error("An error occurred while deleting");
+        } finally {
+            setDeleteConfirm(null);
+        }
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editLocation || !editName.trim() || !editZone.trim()) return;
+        setIsSavingEdit(true);
+        try {
+            const res = await fetch(`/api/warehouses/${editLocation.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...editLocation,
+                    name: editName.trim(),
+                    zone: editZone.trim(),
+                })
+            });
+            if (!res.ok) throw new Error("Failed to update");
+            toast.success("Warehouse updated successfully");
+            await fetchWarehouses();
+            setEditLocation(null);
+        } catch (error) {
+            toast.error("Failed to update warehouse");
+        } finally {
+            setIsSavingEdit(false);
         }
     };
 
@@ -157,7 +213,7 @@ export default function WarehousePage() {
                             onClick={() => {
                                 setSelectedLocation(loc.name);
                                 setComponentSearch("");
-                                setLocationComponents([]); // Reset mock items
+                                fetchLocationComponents(loc.name);
                             }}
                             className="group cursor-pointer border-neutral-100 bg-white shadow-sm transition-all duration-300 hover:border-emerald-200 hover:shadow-lg hover:-translate-y-1 rounded-[22px] overflow-hidden"
                         >
@@ -180,12 +236,28 @@ export default function WarehousePage() {
                                             {loc.status}
                                         </Badge>
                                         {role === "admin" && loc.id && (
-                                            <button 
-                                                onClick={(e) => handleDeleteWarehouse(loc.id!, e)}
-                                                className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                            <>
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditLocation(loc);
+                                                        setEditName(loc.name);
+                                                        setEditZone(loc.zone);
+                                                    }}
+                                                    className="p-1.5 text-neutral-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setDeleteConfirm(loc.id!);
+                                                    }}
+                                                    className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -199,7 +271,7 @@ export default function WarehousePage() {
                                 <div className="flex items-center justify-between p-3 rounded-xl bg-neutral-50/50 border border-neutral-100">
                                     <div className="flex items-center gap-2">
                                         <Package className="h-4 w-4 text-neutral-400" />
-                                        <span className="text-sm font-semibold text-neutral-600">Total Components</span>
+                                        <span className="text-sm font-semibold text-neutral-600">Unique Items</span>
                                     </div>
                                     <span className="text-2xl font-black tracking-tighter text-neutral-900">{loc.total_components}</span>
                                 </div>
@@ -217,9 +289,9 @@ export default function WarehousePage() {
                             <WarehouseIcon className="h-5 w-5 text-emerald-600" />
                             {selectedLocation} Components
                         </DialogTitle>
-                        <CardDescription>
-                            All inventory items currently stored in this location
-                        </CardDescription>
+                        <DialogDescription>
+                            Unique component types stored in this location
+                        </DialogDescription>
                     </DialogHeader>
                     
                     <div className="p-5 space-y-4">
@@ -234,8 +306,16 @@ export default function WarehousePage() {
                         </div>
 
                         <div className="max-h-[50vh] overflow-y-auto pr-1 space-y-2">
-                            {locationComponents.length > 0 ? (
-                                locationComponents.map((comp, i) => (
+                            {isFetchingSub ? (
+                                <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-neutral-300" /></div>
+                            ) : locationComponents.filter(c => 
+                                c.name.toLowerCase().includes(componentSearch.toLowerCase()) || 
+                                c.category.toLowerCase().includes(componentSearch.toLowerCase())
+                            ).length > 0 ? (
+                                locationComponents.filter(c => 
+                                    c.name.toLowerCase().includes(componentSearch.toLowerCase()) || 
+                                    c.category.toLowerCase().includes(componentSearch.toLowerCase())
+                                ).map((comp, i) => (
                                     <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 bg-white hover:border-neutral-200 transition-colors">
                                         <div className="flex items-center gap-3">
                                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -264,6 +344,81 @@ export default function WarehousePage() {
                                 </div>
                             )}
                         </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteConfirm !== null} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+                <DialogContent className="sm:max-w-[400px] text-black overflow-hidden rounded-[20px] p-6 border border-neutral-200/60 shadow-xl bg-white mx-auto w-[90vw]">
+                    <DialogHeader className="mb-4">
+                        <DialogTitle className="text-xl font-bold text-neutral-900">
+                            Confirm Deletion
+                        </DialogTitle>
+                        <DialogDescription className="sr-only">
+                            Confirm deletion of warehouse location
+                        </DialogDescription>
+                    </DialogHeader>
+                    <p className="text-neutral-600 text-sm mb-6">
+                        Are you sure you want to delete this warehouse location? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end gap-3">
+                        <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="rounded-xl border-neutral-200 hover:bg-neutral-100">
+                            Cancel
+                        </Button>
+                        <Button className="rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md font-medium" onClick={() => handleDeleteWarehouse(deleteConfirm!)}>
+                            OK
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Warehouse Dialog */}
+            <Dialog open={editLocation !== null} onOpenChange={(open) => !open && setEditLocation(null)}>
+                <DialogContent className="sm:max-w-[450px] text-black overflow-hidden rounded-[20px] p-6 border border-neutral-200/60 shadow-xl bg-white mx-auto w-[90vw]">
+                    <DialogHeader className="mb-4">
+                        <DialogTitle className="text-xl font-bold text-neutral-900 flex items-center gap-2">
+                            <Edit2 className="h-5 w-5 text-blue-500" />
+                            Edit Warehouse
+                        </DialogTitle>
+                        <DialogDescription className="sr-only">
+                            Edit details of the warehouse location
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-neutral-700">Warehouse Name</label>
+                            <Input 
+                                value={editName} 
+                                onChange={(e) => setEditName(e.target.value)} 
+                                className="border-neutral-200 bg-white"
+                                placeholder="Enter warehouse name..."
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-neutral-700">Zone / Area</label>
+                            <Input 
+                                value={editZone} 
+                                onChange={(e) => setEditZone(e.target.value)} 
+                                className="border-neutral-200 bg-white"
+                                placeholder="Enter zone..."
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 mt-6">
+                        <Button variant="outline" onClick={() => setEditLocation(null)} className="rounded-xl border-neutral-200 hover:bg-neutral-100">
+                            Cancel
+                        </Button>
+                        <Button 
+                            className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white shadow-md font-medium" 
+                            onClick={handleSaveEdit}
+                            disabled={isSavingEdit || !editName.trim() || !editZone.trim()}
+                        >
+                            {isSavingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Save Changes
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>

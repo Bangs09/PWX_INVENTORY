@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS inventory_components (
     name TEXT NOT NULL,
     stock INTEGER NOT NULL DEFAULT 0,
     min_stock INTEGER NOT NULL DEFAULT 10,
+    unit_cost REAL NOT NULL DEFAULT 0,
     category TEXT,
     warehouse TEXT NOT NULL,
     tag TEXT DEFAULT 'Local',

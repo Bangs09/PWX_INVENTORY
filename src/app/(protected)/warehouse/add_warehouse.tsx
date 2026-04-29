@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as XLSX from "xlsx";
 import { Plus, UploadCloud, X, Loader2 } from "lucide-react";
 import { toast } from "sonner"; // Provided from the modern UI stack
+import { processExcelImport, ImportResult, saveExcelImport } from "@/lib/excel-import";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +55,7 @@ export function AddWarehouseDialog({
     const [fileName, setFileName] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [importPreview, setImportPreview] = useState<ImportResult | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -70,7 +72,7 @@ export function AddWarehouseDialog({
         setFileName(file.name);
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: "array" });
@@ -78,17 +80,87 @@ export function AddWarehouseDialog({
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-                const newLocations = jsonData.map((row: any) => ({
-                    name: row.name || row.Name || "New Warehouse",
-                    zone: row.zone || row.Zone || "Unassigned",
-                    total_components: parseInt(row.total_components || row["Total Components"] || 0) || 0,
-                    status: row.status || row.Status || "Active",
-                }));
+                const processedLocs: any[] = [];
+                for (const row of jsonData as any[]) {
+                    let nameVal = "";
+                    let zoneVal = "Unassigned";
+                    let compVal = 0;
+                    let statusVal = "Active";
+
+                    // Convert all keys to lower case for easy lookup
+                    const lowerRow: Record<string, any> = {};
+                    for (const key of Object.keys(row)) {
+                        lowerRow[key.toLowerCase().trim()] = row[key];
+                    }
+
+                    // Prioritize specific column names for the warehouse name
+                    if (lowerRow["warehouse"]) nameVal = lowerRow["warehouse"];
+                    else if (lowerRow["warehouse name"]) nameVal = lowerRow["warehouse name"];
+                    else if (lowerRow["location"]) nameVal = lowerRow["location"];
+                    else if (lowerRow["name"]) nameVal = lowerRow["name"];
+                    else nameVal = "New Warehouse";
+
+                    // Look for zone/area
+                    if (lowerRow["zone"]) zoneVal = lowerRow["zone"];
+                    else if (lowerRow["area"]) zoneVal = lowerRow["area"];
+                    else if (lowerRow["region"]) zoneVal = lowerRow["region"];
+
+                    // Look for status
+                    if (lowerRow["status"]) statusVal = lowerRow["status"];
+
+                    // Look for components count (summing stock or looking for total_components)
+                    if (lowerRow["total components"]) compVal = parseInt(lowerRow["total components"]) || 0;
+                    else if (lowerRow["components"]) compVal = parseInt(lowerRow["components"]) || 0;
+                    else if (lowerRow["stock"]) compVal = parseInt(lowerRow["stock"]) || 0;
+                    else if (lowerRow["quantity"]) compVal = parseInt(lowerRow["quantity"]) || 0;
+
+                    processedLocs.push({
+                        name: String(nameVal).trim(),
+                        zone: String(zoneVal).trim(),
+                        total_components: compVal,
+                        status: String(statusVal).trim()
+                    });
+                }
+
+                // Deduplicate by name and sum components if it's a component list
+                const uniqueMap = new Map();
+                for (const loc of processedLocs) {
+                    if (!uniqueMap.has(loc.name)) {
+                        uniqueMap.set(loc.name, { ...loc });
+                    } else {
+                        const existing = uniqueMap.get(loc.name);
+                        existing.total_components += loc.total_components;
+                    }
+                }
+
+                const newLocations = Array.from(uniqueMap.values());
 
                 setImportedData(newLocations);
                 if (newLocations.length > 0) {
                     toast.success(`Successfully parsed ${newLocations.length} locations`);
                 }
+
+                // Try to parse components as well
+                try {
+                    const [cRes, gRes] = await Promise.all([
+                        fetch("/api/inventory/components"),
+                        fetch("/api/inventory/gateways")
+                    ]);
+                    const currentComponents = await cRes.json();
+                    const currentGateways = await gRes.json();
+                    const result = await processExcelImport(file, currentComponents, currentGateways);
+                    if (result.success && (
+                        result.components.added.length > 0 ||
+                        result.components.updated.length > 0 ||
+                        result.gateways.added.length > 0 ||
+                        result.gateways.updated.length > 0
+                    )) {
+                        setImportPreview(result);
+                    }
+                } catch (err) {
+                    console.error("Failed to parse components from excel", err);
+                }
+
             } catch (error) {
                 console.error("Error parsing Excel file:", error);
                 toast.error("Failed to parse Excel file. Please ensure it is a valid format.");
@@ -130,7 +202,12 @@ export function AddWarehouseDialog({
         try {
             if (importedData.length > 0) {
                 await onImport(importedData);
-                toast.success("Successfully imported warehouse locations!");
+                
+                if (importPreview) {
+                    await saveExcelImport(importPreview);
+                }
+
+                toast.success("Successfully imported warehouse locations and components!");
             } else {
                 await onAdd({
                     name: values.name,
@@ -143,6 +220,7 @@ export function AddWarehouseDialog({
             form.reset();
             handleRemoveFile();
             setOpen(false);
+            setImportPreview(null);
         } catch (error: any) {
             toast.error(error.message || "Failed to add warehouse");
         } finally {
@@ -176,7 +254,19 @@ export function AddWarehouseDialog({
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6">
+                    <form 
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (importedData.length > 0) {
+                                // Bypass form validation if we have imported data
+                                onSubmit(form.getValues());
+                            } else {
+                                // Default behavior for manual entry
+                                form.handleSubmit(onSubmit)(e);
+                            }
+                        }} 
+                        className="p-6 space-y-6"
+                    >
 
                         {/* Drag and Drop Excel File Upload Area */}
                         <div className="flex flex-col mb-2">

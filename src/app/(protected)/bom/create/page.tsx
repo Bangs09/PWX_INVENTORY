@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { findBomById, type StoredComponentRow } from "../bom-storage";
 import type { ComponentItem } from "@/app/(protected)/components/add_components";
 import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
-import { loadComponentCatalog } from "@/lib/inventory-catalog";
+// import { loadComponentCatalog } from "@/lib/inventory-catalog";
 import { formatCurrency } from "@/lib/format-currency";
 import { CatalogPickerDialog } from "../catalog-picker-dialog";
 import {
@@ -139,14 +139,25 @@ function CreateBOMPageInner() {
         }
     }, [components]);
 
-    const [catalog, setCatalog] =
-        useState<ComponentItem[]>(COMPONENT_CATALOG_SEED);
+    const [catalog, setCatalog] = useState<ComponentItem[]>([]);
     const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
     const catalogPickerRowRef = useRef<string | null>(null);
 
-    const refreshCatalog = useCallback(() => {
-        setCatalog(loadComponentCatalog(COMPONENT_CATALOG_SEED));
+    const refreshCatalog = useCallback(async () => {
+        try {
+            const res = await fetch("/api/inventory/components");
+            if (res.ok) {
+                const data = await res.json();
+                setCatalog(data);
+            }
+        } catch (error) {
+            console.error("Failed to refresh catalog:", error);
+        }
     }, []);
+
+    useEffect(() => {
+        refreshCatalog();
+    }, [refreshCatalog]);
 
     /* eslint-disable react-hooks/set-state-in-effect -- client-only edit form hydration */
     // Load BOM from session or localStorage when opening /bom/create?edit=<id>
@@ -359,9 +370,11 @@ function CreateBOMPageInner() {
                           partNumber: item.sku,
                           description: item.name,
                           unitCost:
-                              typeof (item as any).unitCost === "number"
-                                  ? (item as any).unitCost
-                                  : 0,
+                              typeof (item as any).unit_cost === "number"
+                                  ? (item as any).unit_cost
+                                  : typeof (item as any).unitCost === "number"
+                                    ? (item as any).unitCost
+                                    : 0,
                       }
                     : c
             )

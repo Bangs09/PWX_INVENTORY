@@ -246,6 +246,7 @@ export default function GatewaysPage() {
     const [gateways, setGateways] = useState<GatewayItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [warehouses, setWarehouses] = useState<any[]>([]);
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
     const [selectedGw, setSelectedGw] = useState<GatewayItem | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -265,8 +266,27 @@ export default function GatewaysPage() {
         }
     };
 
+    const fetchWarehouses = async () => {
+        try {
+            const res = await fetch("/api/warehouses");
+            if (res.ok) {
+                const data = await res.json();
+                setWarehouses(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch warehouses:", error);
+        }
+    };
+
     useEffect(() => {
         fetchGateways();
+        fetchWarehouses();
+
+        const interval = setInterval(() => {
+            fetchGateways();
+            fetchWarehouses();
+        }, 10000);
+        return () => clearInterval(interval);
     }, []);
 
     const handleRowClick = (gw: GatewayItem) => {
@@ -364,8 +384,13 @@ export default function GatewaysPage() {
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200 text-neutral-900 z-50">
                         <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Warehouses</SelectItem>
-                        <SelectItem value="PWX IoT Hub" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">PWX IoT Hub</SelectItem>
-                        <SelectItem value="Jenny's" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Jenny&apos;s</SelectItem>
+                        {warehouses.length > 0 ? (
+                            warehouses.map(w => (
+                                <SelectItem key={w.name} value={w.name} className="text-neutral-900 cursor-pointer focus:bg-neutral-100">{w.name}</SelectItem>
+                            ))
+                        ) : (
+                            <SelectItem value="none" disabled className="text-neutral-500">No warehouses available</SelectItem>
+                        )}
                     </SelectContent>
                 </Select>
             </div>

@@ -26,9 +26,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useClientRole } from "@/lib/use-client-role";
-import { AddComponentsDialog, ComponentItem } from "./add_components";
 import { addRequest } from "@/lib/stock-requests";
 import { exportComponentsToExcel } from "@/lib/excel-import";
+import { AddComponentsDialog, ComponentItem } from "./add_components";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -59,12 +59,13 @@ function ComponentDetailDialog({
     comp: ComponentItem | null;
     open: boolean;
     onClose: () => void;
-    onUpdate: (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number, newTag?: string) => void;
+    onUpdate: (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number, newTag?: string, unitCost?: number) => void;
     role: string;
 }) {
     const [inputValue, setInputValue] = useState<string>("");
     const [nameValue, setNameValue] = useState<string>("");
     const [minStockValue, setMinStockValue] = useState<string>("");
+    const [unitCostValue, setUnitCostValue] = useState<string>("0");
     const [tagValue, setTagValue] = useState<string>("Local");
     const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
     // User: withdrawal request quantity
@@ -81,6 +82,7 @@ function ComponentDetailDialog({
             setInputValue(comp.stock.toString());
             setNameValue(comp.name);
             setMinStockValue((comp.min_stock ?? 0).toString());
+            setUnitCostValue((comp.unit_cost ?? 0).toString());
             setTagValue(comp.tag || "Local");
             setImageUrl(comp.image);
             setReqQty("1");
@@ -109,9 +111,11 @@ function ComponentDetailDialog({
         if (!comp) return;
         const safeMin = parseInt(minStockValue, 10);
         const finalMin = isNaN(safeMin) ? (comp.min_stock || 0) : safeMin;
+        const safeCost = parseFloat(unitCostValue);
+        const finalCost = isNaN(safeCost) ? (comp.unit_cost || 0) : safeCost;
         
-        console.log(`[DEBUG] Saving: Stock=${safeQty}, Min=${finalMin}, Tag=${tagValue} for SKU: ${comp.sku}`);
-        onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue, finalMin, tagValue);
+        console.log(`[DEBUG] Saving: Stock=${safeQty}, Min=${finalMin}, Cost=${finalCost}, Tag=${tagValue} for SKU: ${comp.sku}`);
+        onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue, finalMin, tagValue, finalCost);
         onClose();
     }
 
@@ -173,7 +177,7 @@ function ComponentDetailDialog({
                                         value={nameValue}
                                         onChange={(e) => setNameValue(e.target.value)}
                                         className="w-full bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-violet-500 focus:outline-none transition-colors py-0.5 truncate"
-                                        placeholder="Component Name"
+                                        placeholder="Component"
                                     />
                                 ) : (
                                     comp.name
@@ -228,7 +232,25 @@ function ComponentDetailDialog({
                             </span>
                         </div>
                         <div className="flex flex-col gap-1 p-3 rounded-xl bg-neutral-50/80 border border-neutral-100">
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Current Qty</span>
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Unit Cost</span>
+                            <span className="font-semibold text-neutral-900 text-base">
+                                {role === "admin" ? (
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            type="text"
+                                            value={unitCostValue}
+                                            onChange={(e) => { if (/^[0-9.]*$/.test(e.target.value)) setUnitCostValue(e.target.value); }}
+                                            className="w-16 bg-transparent border-b border-neutral-300 focus:border-violet-500 focus:outline-none text-center"
+                                        />
+                                        <span className="text-xs text-neutral-400 font-normal">$</span>
+                                    </div>
+                                ) : (
+                                    <>${comp.unit_cost} <span className="text-xs text-neutral-400 font-normal">$</span></>
+                                )}
+                            </span>
+                        </div>
+                        <div className="flex flex-col gap-1 p-3 rounded-xl bg-neutral-50/80 border border-neutral-100">
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Stock</span>
                             <span className="font-semibold text-neutral-900 text-base">{comp.stock} <span className="text-xs text-neutral-400 font-normal">pcs</span></span>
                         </div>
                     </div>
@@ -329,6 +351,7 @@ export default function ComponentsPage() {
     const [selectedComp, setSelectedComp] = useState<ComponentItem | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [search, setSearch] = useState("");
+    const [warehouses, setWarehouses] = useState<any[]>([]);
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
     const [tagFilter, setTagFilter] = useState("All Types");
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -350,12 +373,26 @@ export default function ComponentsPage() {
         }
     };
 
+    const fetchWarehouses = async () => {
+        try {
+            const res = await fetch("/api/warehouses");
+            if (res.ok) {
+                const data = await res.json();
+                setWarehouses(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch warehouses:", error);
+        }
+    };
+
     useEffect(() => {
         fetchComponents();
+        fetchWarehouses();
         
         // Real-time Sync: Polling every 10 seconds
         const interval = setInterval(() => {
             fetchComponents();
+            fetchWarehouses();
         }, 10000);
 
         return () => clearInterval(interval);
@@ -379,13 +416,13 @@ export default function ComponentsPage() {
         setDialogOpen(true);
     };
 
-    const handleUpdate = async (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number, newTag?: string) => {
+    const handleUpdate = async (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number, newTag?: string, unitCost?: number) => {
         try {
-            console.log(`[API_PATCH] Updating ${sku} - New Stock: ${newStock}, New Min: ${minStock}, Tag: ${newTag}`);
+            console.log(`[API_PATCH] Updating ${sku} - New Stock: ${newStock}, New Min: ${minStock}, Cost: ${unitCost}, Tag: ${newTag}`);
             const res = await fetch("/api/inventory/components", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sku, warehouse, stock: newStock, image: imageUrl, name: newName, min_stock: minStock, tag: newTag }),
+                body: JSON.stringify({ sku, warehouse, stock: newStock, image: imageUrl, name: newName, min_stock: minStock, tag: newTag, unit_cost: unitCost }),
             });
             const updated = await res.json();
             console.log(`[API_PATCH_RESPONSE] Status: ${res.status}`, updated);
@@ -508,8 +545,13 @@ export default function ComponentsPage() {
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4} className="bg-white border-neutral-200 text-neutral-900 z-50">
                         <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Warehouses</SelectItem>
-                        <SelectItem value="PWX IoT Hub" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">PWX IoT Hub</SelectItem>
-                        <SelectItem value="Jenny's" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Jenny&apos;s</SelectItem>
+                        {warehouses.length > 0 ? (
+                            warehouses.map(w => (
+                                <SelectItem key={w.name} value={w.name} className="text-neutral-900 cursor-pointer focus:bg-neutral-100">{w.name}</SelectItem>
+                            ))
+                        ) : (
+                            <SelectItem value="none" disabled className="text-neutral-500">No warehouses available</SelectItem>
+                        )}
                     </SelectContent>
                 </Select>
                 <Select value={tagFilter} onValueChange={setTagFilter}>
@@ -564,7 +606,7 @@ export default function ComponentsPage() {
                                     <div className="flex items-center gap-4">
                                         <div className="hidden text-right sm:block">
                                             <p className="text-xs text-neutral-500">
-                                                Qty:{" "}
+                                                Stock:{" "}
                                                 <span className={textClass}>{comp.stock} pcs</span>
                                             </p>
                                         </div>

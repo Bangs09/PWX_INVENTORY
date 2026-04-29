@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { adjustComponentStock } from "@/lib/db";
+import { adjustComponentStock, logActivity } from "@/lib/db";
 
 export async function POST(request: Request) {
     const session = await getSession();
@@ -16,6 +16,9 @@ export async function POST(request: Request) {
         }
 
         const updatedItem = await adjustComponentStock(sku, warehouse, delta);
+        const actionName = delta >= 0 ? "Stock Increased" : "Stock Decreased";
+        const actionDetail = `${updatedItem.name} stock ${delta >= 0 ? 'increased' : 'decreased'} by ${Math.abs(delta)} pcs`;
+        await logActivity(actionName, actionDetail, session.email, updatedItem.sku);
         return NextResponse.json(updatedItem);
     } catch (error: any) {
         console.error("[API_ADJUST_STOCK_ERROR]", error.message);

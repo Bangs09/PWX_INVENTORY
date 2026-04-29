@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -63,6 +63,21 @@ export function AddGatewaysDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/warehouses")
+      .then(res => res.json())
+      .then(data => {
+        setWarehouses(data);
+        if (data.length > 0) {
+          form.setValue("location", data[0].name);
+        } else {
+          form.setValue("location", "");
+        }
+      })
+      .catch(err => console.error("Failed to load warehouses:", err));
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -70,7 +85,7 @@ export function AddGatewaysDialog({
       name: "",
       sku: "",
       quantity: "1",
-      location: "PWX IoT Hub",
+      location: "",
     },
   });
 
@@ -253,8 +268,13 @@ export function AddGatewaysDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent position="popper" sideOffset={4} className="bg-white text-black border-neutral-200">
-                          <SelectItem value="PWX IoT Hub">PWX IoT Hub</SelectItem>
-                          <SelectItem value="Jenny's">Jenny&apos;s</SelectItem>
+                          {warehouses.length > 0 ? (
+                            warehouses.map(w => (
+                              <SelectItem key={w.name} value={w.name}>{w.name}</SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>No warehouses available</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />

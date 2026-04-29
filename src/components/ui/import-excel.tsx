@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, AlertTriangle, Cpu, Radio } from "lucide-react";
-import { processExcelImport, ImportResult } from "@/lib/excel-import";
+import { processExcelImport, ImportResult, saveExcelImport } from "@/lib/excel-import";
 import { toast } from "sonner";
 
 interface ImportExcelButtonProps {
@@ -109,7 +109,7 @@ export function ImportExcelButton({ onImportComplete }: ImportExcelButtonProps) 
 
                         {(importPreview?.components.added.length || 0) > 0 && (
                             <div className="mb-5 bg-white border border-neutral-100 rounded-xl p-4 shadow-sm">
-                                <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Sample Component Additions</h4>
+                                <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">New Components Preview</h4>
                                 <div className="text-sm text-neutral-700 space-y-2">
                                     {importPreview?.components.added.slice(0, 3).map((c, i) => (
                                         <div key={i} className="flex justify-between items-center border-b border-neutral-50 pb-2 last:border-0 last:pb-0">
@@ -123,7 +123,7 @@ export function ImportExcelButton({ onImportComplete }: ImportExcelButtonProps) 
                         )}
                         {(importPreview?.components.updated.length || 0) > 0 && (
                             <div className="mb-5 bg-white border border-neutral-100 rounded-xl p-4 shadow-sm">
-                                <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Sample Component Updates</h4>
+                                <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Updated Components Preview</h4>
                                 <div className="text-sm text-neutral-700 space-y-2">
                                     {importPreview?.components.updated.slice(0, 3).map((c, i) => (
                                         <div key={i} className="flex justify-between items-center border-b border-neutral-50 pb-2 last:border-0 last:pb-0">
@@ -137,7 +137,7 @@ export function ImportExcelButton({ onImportComplete }: ImportExcelButtonProps) 
                         )}
                         {(importPreview?.gateways.added.length || 0) > 0 && (
                             <div className="mb-5 bg-white border border-neutral-100 rounded-xl p-4 shadow-sm">
-                                <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Sample Gateway Additions</h4>
+                                <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">New Gateways Preview</h4>
                                 <div className="text-sm text-neutral-700 space-y-2">
                                     {importPreview?.gateways.added.slice(0, 3).map((g, i) => (
                                         <div key={i} className="flex justify-between items-center border-b border-neutral-50 pb-2 last:border-0 last:pb-0">
@@ -151,7 +151,7 @@ export function ImportExcelButton({ onImportComplete }: ImportExcelButtonProps) 
                         )}
                         {(importPreview?.gateways.updated.length || 0) > 0 && (
                             <div className="mb-5 bg-white border border-neutral-100 rounded-xl p-4 shadow-sm">
-                                <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Sample Gateway Updates</h4>
+                                <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Updated Gateways Preview</h4>
                                 <div className="text-sm text-neutral-700 space-y-2">
                                     {importPreview?.gateways.updated.slice(0, 3).map((g, i) => (
                                         <div key={i} className="flex justify-between items-center border-b border-neutral-50 pb-2 last:border-0 last:pb-0">
@@ -171,50 +171,7 @@ export function ImportExcelButton({ onImportComplete }: ImportExcelButtonProps) 
                             if (!importPreview) return;
                             setIsImporting(true);
                             try {
-                                const handleRes = async (res: Response, itemContext: string) => {
-                                    if (!res.ok) {
-                                        let errText = await res.text();
-                                        throw new Error(`Failed to save ${itemContext}. Status: ${res.status}, Details: ${errText}`);
-                                    }
-                                    return res;
-                                };
-
-                                const componentAdjustOps = importPreview.components.updated.map(c => 
-                                    fetch("/api/inventory/components/adjust", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ sku: c.sku, warehouse: c.warehouse, delta: c.stock })
-                                    }).then(r => handleRes(r, `Adjust Component ${c.sku}`))
-                                );
-
-                                const gatewayOps = [
-                                    ...importPreview.gateways.added.map(g => 
-                                        fetch("/api/inventory/gateways", {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify(g)
-                                        }).then(r => handleRes(r, `Add Gateway ${g.sku}`))
-                                    ),
-                                    ...importPreview.gateways.updated.map(g => 
-                                        fetch("/api/inventory/gateways/adjust", {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ sku: g.sku, delta: g.quantity })
-                                        }).then(r => handleRes(r, `Adjust Gateway ${g.sku}`))
-                                    )
-                                ];
-
-                                await Promise.all([
-                                    ...importPreview.components.added.map(c => 
-                                        fetch("/api/inventory/components", {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify(c)
-                                        }).then(r => handleRes(r, `Add Component ${c.sku}`))
-                                    ),
-                                    ...componentAdjustOps,
-                                    ...gatewayOps
-                                ]);
+                                await saveExcelImport(importPreview);
 
                                 const totalAdded = importPreview.components.added.length + importPreview.gateways.added.length;
                                 const totalUpdated = importPreview.components.updated.length + importPreview.gateways.updated.length;

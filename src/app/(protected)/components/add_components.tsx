@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -52,6 +52,7 @@ export interface ComponentItem {
   sku: string;
   stock: number;
   min_stock: number;
+  unit_cost: number;
   category: string;
   image?: string;
   warehouse?: string;
@@ -64,6 +65,7 @@ const formSchema = z.object({
   sku: z.string().min(1, "SKU is required"),
   stock: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Stock must be a non-negative number"),
   min_stock: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Minimum stock must be a non-negative number"),
+  unit_cost: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Unit cost must be a non-negative number"),
   category: z.string().min(1, "Category is required"),
   warehouse: z.string().min(1, "Warehouse is required"),
   tag: z.string().min(1, "Origin tag is required"),
@@ -82,6 +84,21 @@ export function AddComponentsDialog({
 
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/warehouses")
+      .then(res => res.json())
+      .then(data => {
+        setWarehouses(data);
+        if (data.length > 0) {
+          form.setValue("warehouse", data[0].name);
+        } else {
+          form.setValue("warehouse", "");
+        }
+      })
+      .catch(err => console.error("Failed to load warehouses:", err));
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -90,8 +107,9 @@ export function AddComponentsDialog({
       sku: "",
       stock: "",
       min_stock: "",
+      unit_cost: "0",
       category: "",
-      warehouse: "PWX IoT Hub",
+      warehouse: "",
       tag: "Local",
     },
   });
@@ -125,6 +143,7 @@ export function AddComponentsDialog({
       sku: values.sku,
       stock: Number(values.stock),
       min_stock: Number(values.min_stock),
+      unit_cost: Number(values.unit_cost),
       category: values.category,
       warehouse: values.warehouse,
       tag: values.tag,
@@ -191,7 +210,7 @@ export function AddComponentsDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Component Name</FormLabel>
+                  <FormLabel>Component</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g. ADA Fruit" {...field} className="h-10 border-neutral-200 focus-visible:ring-violet-500/20 focus-visible:border-violet-500 bg-white" />
                   </FormControl>
@@ -204,7 +223,7 @@ export function AddComponentsDialog({
               name="sku"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>SKU / Part Number</FormLabel>
+                  <FormLabel>SKU</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g. ADA-FRUIT" {...field} className="h-10 border-neutral-200 focus-visible:ring-violet-500/20 focus-visible:border-violet-500 font-mono text-sm bg-white" />
                   </FormControl>
@@ -218,7 +237,7 @@ export function AddComponentsDialog({
                 name="stock"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Current Stock</FormLabel>
+                    <FormLabel>Stock</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} className="h-10 border-neutral-200 focus-visible:ring-violet-500/20 focus-visible:border-violet-500 bg-white" />
                     </FormControl>
@@ -296,6 +315,21 @@ export function AddComponentsDialog({
               />
               <FormField
                 control={form.control}
+                name="unit_cost"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unit Cost</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} className="h-10 border-neutral-200 focus-visible:ring-violet-500/20 focus-visible:border-violet-500 bg-white" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
                 name="warehouse"
                 render={({ field }) => (
                   <FormItem>
@@ -307,8 +341,34 @@ export function AddComponentsDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent position="popper" sideOffset={4} className="bg-white text-black">
-                        <SelectItem value="PWX IoT Hub">PWX IoT Hub</SelectItem>
-                        <SelectItem value="Jenny's">Jenny&apos;s</SelectItem>
+                        {warehouses.length > 0 ? (
+                          warehouses.map(w => (
+                            <SelectItem key={w.name} value={w.name}>{w.name}</SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>No warehouses available</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="tag"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Item Source</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-10 w-full bg-white text-black border-neutral-200 focus:ring-violet-500/20 focus:border-violet-500 text-left">
+                          <SelectValue placeholder="Select Item Source" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper" sideOffset={4} className="bg-white text-black">
+                        <SelectItem value="Local">Local</SelectItem>
+                        <SelectItem value="Import">Import</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -316,28 +376,6 @@ export function AddComponentsDialog({
                 )}
               />
             </div>
-            
-            <FormField
-              control={form.control}
-              name="tag"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Origin</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-10 w-full bg-white text-black border-neutral-200 focus:ring-violet-500/20 focus:border-violet-500 text-left">
-                        <SelectValue placeholder="Select Origin" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper" sideOffset={4} className="bg-white text-black">
-                      <SelectItem value="Local">Local</SelectItem>
-                      <SelectItem value="Import">Import</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             
               </div>
             </div>

@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 
 // Initialize the SQLite Connection.
-const dbPath = path.join(process.cwd(), 'database.sqlite');
+const dbPath = path.join(process.cwd(), 'Database', 'database.sqlite');
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
@@ -49,6 +49,7 @@ export type ComponentItem = {
     name: string;
     stock: number;
     min_stock: number;
+    unit_cost: number;
     category: string;
     warehouse: string;
     tag?: string;
@@ -239,13 +240,14 @@ export async function getInventoryComponents(): Promise<ComponentItem[]> {
 export async function upsertComponent(item: Partial<ComponentItem>): Promise<ComponentItem> {
     try {
         const queryText = `
-            INSERT INTO inventory_components (sku, name, stock, min_stock, category, warehouse, tag, image)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO inventory_components (sku, name, stock, min_stock, unit_cost, category, warehouse, tag, image)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (sku, warehouse) 
             DO UPDATE SET 
                 name = excluded.name,
                 stock = excluded.stock,
                 min_stock = excluded.min_stock,
+                unit_cost = excluded.unit_cost,
                 category = excluded.category,
                 tag = excluded.tag,
                 image = COALESCE(excluded.image, inventory_components.image),
@@ -257,6 +259,7 @@ export async function upsertComponent(item: Partial<ComponentItem>): Promise<Com
             item.name,
             item.stock,
             item.min_stock || (item as any).min || 0,
+            item.unit_cost || (item as any).unitCost || 0,
             item.category,
             item.warehouse || "PWX IoT Hub",
             item.tag || "Local",
@@ -314,6 +317,8 @@ export async function updateComponent(sku: string, warehouse: string, updates: P
         if (updates.name !== undefined) { fields.push(`name = ?`); values.push(updates.name); }
         if (updates.stock !== undefined) { fields.push(`stock = ?`); values.push(updates.stock); }
         if (minStockToUpdate !== undefined) { fields.push(`min_stock = ?`); values.push(minStockToUpdate); }
+        const unitCostToUpdate = updates.unit_cost !== undefined ? updates.unit_cost : (updates as any).unitCost;
+        if (unitCostToUpdate !== undefined) { fields.push(`unit_cost = ?`); values.push(unitCostToUpdate); }
         if (updates.category !== undefined) { fields.push(`category = ?`); values.push(updates.category); }
         if (updates.tag !== undefined) { fields.push(`tag = ?`); values.push(updates.tag); }
         if (updates.image !== undefined) { fields.push(`image = ?`); values.push(updates.image); }
@@ -716,7 +721,14 @@ export type DashboardSummary = {
 
 export async function getWarehouses(): Promise<Warehouse[]> {
     try {
-        return db.prepare("SELECT * FROM warehouses ORDER BY name ASC").all() as Warehouse[];
+        const query = `
+            SELECT 
+                w.*, 
+                COALESCE((SELECT COUNT(*) FROM inventory_components WHERE warehouse = w.name), 0) as total_components
+            FROM warehouses w
+            ORDER BY w.name ASC
+        `;
+        return db.prepare(query).all() as Warehouse[];
     } catch (error) {
         console.error("Failed fetching warehouses:", error);
         throw new Error("Internal Database Error");
@@ -728,6 +740,11 @@ export async function createWarehouse(data: { name: string; zone: string; total_
         db.prepare(`
             INSERT INTO warehouses (name, zone, total_components, status) 
             VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                zone = excluded.zone,
+                total_components = warehouses.total_components + excluded.total_components,
+                status = excluded.status,
+                updated_at = CURRENT_TIMESTAMP
         `).run(data.name, data.zone, data.total_components, data.status);
     } catch (error) {
         console.error("Failed creating warehouse:", error);
@@ -737,11 +754,19 @@ export async function createWarehouse(data: { name: string; zone: string; total_
 
 export async function updateWarehouse(id: number, data: { name: string; zone: string; total_components: number; status: string }): Promise<void> {
     try {
+        const oldWarehouse = db.prepare("SELECT name FROM warehouses WHERE id = ?").get(id) as { name: string } | undefined;
+        
         db.prepare(`
             UPDATE warehouses 
             SET name = ?, zone = ?, total_components = ?, status = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         `).run(data.name, data.zone, data.total_components, data.status, id);
+
+        if (oldWarehouse && oldWarehouse.name !== data.name) {
+            // Cascade name changes
+            db.prepare(`UPDATE inventory_components SET warehouse = ? WHERE warehouse = ?`).run(data.name, oldWarehouse.name);
+            db.prepare(`UPDATE gateways SET location = ? WHERE location = ?`).run(data.name, oldWarehouse.name);
+        }
     } catch (error) {
         console.error("Failed updating warehouse:", error);
         throw new Error("Internal Database Error");
@@ -759,7 +784,7 @@ export async function deleteWarehouse(id: number): Promise<void> {
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
     try {
-        const allGateways = db.prepare("SELECT name, location, type FROM gateways ORDER BY name ASC").all() as any[];
+        const allGateways = db.prepare("SELECT * FROM gateways ORDER BY name ASC").all() as any[];
         const allComponents = db.prepare("SELECT * FROM inventory_components ORDER BY name ASC").all() as ComponentItem[];
         const warehouseTotal = db.prepare("SELECT SUM(total_components) as total FROM warehouses").get() as { total: number | null };
         const componentsTotalSum = warehouseTotal.total || 0;
