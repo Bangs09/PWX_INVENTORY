@@ -9,9 +9,6 @@ import {
     Edit2,
     Check,
     X,
-    Eye,
-    EyeOff,
-    KeyRound,
     UserCircle2,
     BadgeCheck,
 } from "lucide-react";
@@ -43,10 +40,6 @@ export default function ProfilePage() {
     });
     const [tempProfile, setTempProfile] = useState({ ...profile });
     const [image, setImage] = useState<string | null>(null);
-    const [showCurrent, setShowCurrent] = useState(false);
-    const [showNew, setShowNew] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [password, setPassword] = useState({ current: "", newPw: "", confirm: "" });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch profile data on mount
@@ -287,84 +280,17 @@ export default function ProfilePage() {
 
                     <Separator className="bg-neutral-100" />
 
-                    {/* Change Password */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <KeyRound className="h-4 w-4 text-neutral-400" />
-                            <p className="text-sm font-bold text-neutral-800">Change Password</p>
+                    {/* Password Info */}
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                            <ShieldCheck className="h-4 w-4 text-amber-700" />
                         </div>
-
-                        <div className="space-y-3">
-                            <PasswordInput
-                                label="Current Password"
-                                value={password.current}
-                                show={showCurrent}
-                                onToggle={() => setShowCurrent(!showCurrent)}
-                                onChange={(v) => setPassword({ ...password, current: v })}
-                                placeholder="Enter current password"
-                            />
-                            <PasswordInput
-                                label="New Password"
-                                value={password.newPw}
-                                show={showNew}
-                                onToggle={() => setShowNew(!showNew)}
-                                onChange={(v) => setPassword({ ...password, newPw: v })}
-                                placeholder="Enter new password"
-                            />
-                            <PasswordInput
-                                label="Confirm New Password"
-                                value={password.confirm}
-                                show={showConfirm}
-                                onToggle={() => setShowConfirm(!showConfirm)}
-                                onChange={(v) => setPassword({ ...password, confirm: v })}
-                                placeholder="Re-enter new password"
-                            />
+                        <div>
+                            <p className="text-sm font-semibold text-amber-900">Password Management</p>
+                            <p className="text-xs text-amber-700 mt-0.5">Password resets can only be performed by an administrator via the User Management page.</p>
                         </div>
-
-                        <Button className="bg-black hover:bg-neutral-800 text-white h-10 px-5 rounded-xl font-bold text-sm gap-2 shadow-sm mt-1">
-                            <KeyRound className="h-4 w-4" /> Update Password
-                        </Button>
                     </div>
                 </div>
-            </div>
-        </div>
-    );
-}
-
-/* ── Password Input helper ── */
-function PasswordInput({
-    label,
-    value,
-    show,
-    onToggle,
-    onChange,
-    placeholder,
-}: {
-    label: string;
-    value: string;
-    show: boolean;
-    onToggle: () => void;
-    onChange: (v: string) => void;
-    placeholder: string;
-}) {
-    return (
-        <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest">{label}</label>
-            <div className="relative">
-                <Input
-                    type={show ? "text" : "password"}
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder={placeholder}
-                    className="h-11 border-neutral-200 rounded-xl pr-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 font-medium text-sm"
-                />
-                <button
-                    type="button"
-                    onClick={onToggle}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
-                >
-                    {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
             </div>
         </div>
     );

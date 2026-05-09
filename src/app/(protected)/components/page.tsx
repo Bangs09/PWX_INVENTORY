@@ -95,12 +95,10 @@ function ComponentDetailDialog({
 
     function handleIncrement() { 
         const next = safeQty + 1;
-        console.log(`[DEBUG] Increment: ${safeQty} -> ${next}`);
         setInputValue(next.toString()); 
     }
     function handleDecrement() { 
         const next = Math.max(0, safeQty - 1);
-        console.log(`[DEBUG] Decrement: ${safeQty} -> ${next}`);
         setInputValue(next.toString()); 
     }
     function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -114,7 +112,6 @@ function ComponentDetailDialog({
         const safeCost = parseFloat(unitCostValue);
         const finalCost = isNaN(safeCost) ? (comp.unit_cost || 0) : safeCost;
         
-        console.log(`[DEBUG] Saving: Stock=${safeQty}, Min=${finalMin}, Cost=${finalCost}, Tag=${tagValue} for SKU: ${comp.sku}`);
         onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue, finalMin, tagValue, finalCost);
         onClose();
     }
@@ -418,14 +415,12 @@ export default function ComponentsPage() {
 
     const handleUpdate = async (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number, newTag?: string, unitCost?: number) => {
         try {
-            console.log(`[API_PATCH] Updating ${sku} - New Stock: ${newStock}, New Min: ${minStock}, Cost: ${unitCost}, Tag: ${newTag}`);
             const res = await fetch("/api/inventory/components", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ sku, warehouse, stock: newStock, image: imageUrl, name: newName, min_stock: minStock, tag: newTag, unit_cost: unitCost }),
             });
             const updated = await res.json();
-            console.log(`[API_PATCH_RESPONSE] Status: ${res.status}`, updated);
             
             if (res.ok) {
                 // Synchronize the selected component state so the modal keeps the correct value

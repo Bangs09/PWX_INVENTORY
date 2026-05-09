@@ -1,17 +1,33 @@
 import { NextResponse } from "next/server";
-import { updateUserProfile, deleteUserByEmail } from "@/lib/db";
+import { updateUserProfile, deleteUserByEmail, updatePassword } from "@/lib/db";
 import { getSession } from "@/lib/auth-server";
+import bcrypt from "bcryptjs";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ email: string }> }) {
     try {
         const { email } = await params;
         const decodedEmail = decodeURIComponent(email);
         const body = await request.json();
-        const { role, name } = body;
+        const { role, name, action, newPassword } = body;
 
         const session = await getSession();
         if (!session) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // ── Admin-only: Reset another user's password ──
+        if (action === "resetPassword") {
+            if (session.role !== "admin") {
+                return NextResponse.json({ error: "Only admins can reset passwords" }, { status: 403 });
+            }
+            if (!newPassword || newPassword.length < 8) {
+                return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+            }
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(newPassword, salt);
+            await updatePassword(decodedEmail, passwordHash);
+            console.log(`[ADMIN] Password reset for ${decodedEmail} by ${session.email}`);
+            return NextResponse.json({ message: "Password reset successfully" });
         }
 
         const updates: any = {};
@@ -51,9 +67,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ e
         const { email } = await params;
         const decodedEmail = decodeURIComponent(email);
         
-        // Let's decode this email carefully. If it's a critical safety endpoint, we might verify session role.
-        // For now, it relies on the frontend restriction + future session hooks.
-        // Also preventing self-deletion is left to the frontend / session validation.
+        const session = await getSession();
+        if (!session) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        if (session.role !== "admin") {
+            return NextResponse.json({ error: "Only admins can delete users" }, { status: 403 });
+        }
+        if (session.email === decodedEmail) {
+            return NextResponse.json({ error: "You cannot delete your own account" }, { status: 403 });
+        }
 
         await deleteUserByEmail(decodedEmail);
         return NextResponse.json({ message: "User deleted successfully" });

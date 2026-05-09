@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "db:init": "npm run db:migrate && npm run db:fix-admin",
     "db:migrate": "node scripts/migrations/migrate-db.mjs",
     "db:migrate:all": "node scripts/migrations/migrate-inventory.mjs",
     "db:fix-admin": "node scripts/fix-admin-password.mjs",

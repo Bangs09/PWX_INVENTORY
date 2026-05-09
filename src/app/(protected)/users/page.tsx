@@ -10,7 +10,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Search, Filter, Shield, MoreVertical, Trash2, Pencil } from "lucide-react";
+import { Users, Search, Filter, Shield, MoreVertical, Trash2, Pencil, KeyRound, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -23,6 +23,14 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function UsersPage() {
     const router = useRouter();
@@ -31,6 +39,10 @@ export default function UsersPage() {
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState<"All" | "Co-Admin" | "User">("All");
     const [loading, setLoading] = useState(true);
+    const [resetTarget, setResetTarget] = useState<UserAccount | null>(null);
+    const [newPassword, setNewPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
 
     useEffect(() => {
         if (!ready) return;
@@ -128,6 +140,33 @@ export default function UsersPage() {
             toast.success("User role updated");
         } catch (error) {
             toast.error("Failed to update user role");
+        }
+    };
+
+    const handleResetPassword = async () => {
+        if (!resetTarget) return;
+        if (newPassword.length < 8) {
+            toast.error("Password must be at least 8 characters");
+            return;
+        }
+        setIsResetting(true);
+        try {
+            const res = await fetch(`/api/users/${encodeURIComponent(resetTarget.email)}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "resetPassword", newPassword }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Failed to reset password");
+            }
+            toast.success(`Password reset for ${resetTarget.name || resetTarget.email}`);
+            setResetTarget(null);
+            setNewPassword("");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to reset password");
+        } finally {
+            setIsResetting(false);
         }
     };
 
@@ -246,7 +285,7 @@ export default function UsersPage() {
                                             <MoreVertical className="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-44 bg-white border-neutral-200 shadow-lg">
+                                    <DropdownMenuContent align="end" className="w-48 bg-white border-neutral-200 shadow-lg">
                                         <DropdownMenuItem
                                             className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer hover:bg-neutral-50 focus:bg-neutral-50"
                                             onClick={() => handleEditRole(user.email)}
@@ -256,6 +295,14 @@ export default function UsersPage() {
                                         </DropdownMenuItem>
                                         {role === "admin" && (
                                             <>
+                                                <DropdownMenuSeparator className="bg-neutral-100" />
+                                                <DropdownMenuItem
+                                                    className="flex items-center gap-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-50 focus:bg-amber-50"
+                                                    onClick={() => { setResetTarget(user); setNewPassword(""); setShowPassword(false); }}
+                                                >
+                                                    <KeyRound className="h-3.5 w-3.5" />
+                                                    Reset Password
+                                                </DropdownMenuItem>
                                                 <DropdownMenuSeparator className="bg-neutral-100" />
                                                 <DropdownMenuItem
                                                     className="flex items-center gap-2 text-sm text-red-600 cursor-pointer hover:bg-red-50 focus:bg-red-50"
@@ -273,6 +320,63 @@ export default function UsersPage() {
                     </Card>
                 ))}
             </div>
+
+            {/* ── Reset Password Dialog ── */}
+            <Dialog open={!!resetTarget} onOpenChange={(open) => { if (!open) { setResetTarget(null); setNewPassword(""); } }}>
+                <DialogContent className="sm:max-w-[400px] bg-white text-black rounded-2xl border border-neutral-200 shadow-2xl p-0 overflow-hidden">
+                    <DialogHeader className="px-6 pt-6 pb-4 border-b border-neutral-100 bg-amber-50/40">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+                                <KeyRound className="h-5 w-5 text-amber-700" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-base font-bold text-neutral-900">Reset Password</DialogTitle>
+                                <DialogDescription className="text-xs text-neutral-500 mt-0.5">
+                                    Set a new password for <span className="font-semibold text-neutral-700">{resetTarget?.name || resetTarget?.email}</span>
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+                    <div className="px-6 py-5 space-y-3">
+                        <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest">New Password</label>
+                        <div className="relative">
+                            <Input
+                                id="reset-password-input"
+                                type={showPassword ? "text" : "password"}
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                placeholder="Min. 8 characters"
+                                className="h-11 pr-11 rounded-xl border-neutral-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 font-medium text-sm"
+                                onKeyDown={(e) => { if (e.key === "Enter") handleResetPassword(); }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-neutral-400">The user will be required to change this password on next login.</p>
+                    </div>
+                    <DialogFooter className="px-6 pb-6 flex gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => { setResetTarget(null); setNewPassword(""); }}
+                            className="flex-1 h-10 rounded-xl border-neutral-200 text-neutral-600"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleResetPassword}
+                            disabled={isResetting || newPassword.length < 8}
+                            className="flex-1 h-10 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-sm"
+                        >
+                            {isResetting ? "Resetting..." : "Reset Password"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

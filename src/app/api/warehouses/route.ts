@@ -28,10 +28,13 @@ export async function POST(req: Request) {
         await logActivity("created", "Warehouse Location", "System User", data.name);
 
         return NextResponse.json({ success: true }, { status: 201 });
-    } catch (error) {
+    } catch (error: any) {
         console.error("POST Warehouse Error:", error);
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: "Validation Error", details: error.issues }, { status: 400 });
+        }
+        if (error.message === "Warehouse with this name already exists") {
+            return NextResponse.json({ error: error.message }, { status: 409 });
         }
         return NextResponse.json({ error: "Failed to create warehouse" }, { status: 500 });
     }

@@ -6,9 +6,16 @@
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const JWT_SECRET = new TextEncoder().encode(
-    process.env.JWT_SECRET || "super-secret-fallback-key-for-development"
-);
+const JWT_SECRET_VALUE = process.env.JWT_SECRET;
+
+function getJwtSecret(): Uint8Array {
+    if (!JWT_SECRET_VALUE && process.env.NODE_ENV === "production") {
+        throw new Error("[FATAL] JWT_SECRET environment variable is not set. The server cannot handle authenticated requests securely.");
+    }
+    return new TextEncoder().encode(
+        JWT_SECRET_VALUE || "super-secret-fallback-key-for-development"
+    );
+}
 
 export type UserRole = "admin" | "co-admin" | "user";
 
@@ -29,7 +36,7 @@ export async function getSession(): Promise<SessionPayload | null> {
         const token = cookieStore.get("pwx_auth_token")?.value;
         if (!token) return null;
 
-        const { payload } = await jwtVerify(token, JWT_SECRET);
+        const { payload } = await jwtVerify(token, getJwtSecret());
         return {
             userId: payload.userId as number,
             email: payload.email as string,

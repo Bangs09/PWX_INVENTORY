@@ -63,10 +63,6 @@ export default function LoginPage() {
 
         setIsLoading(true);
 
-        if (process.env.NODE_ENV === "development") {
-            console.log("[AUTH DEBUG] Attempting login:", { email: data.email, password: data.password });
-        }
-
         try {
             await login(data.email, data.password);
 
@@ -163,10 +159,7 @@ export default function LoginPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <div className="flex justify-between items-center ml-1">
-                                <label className="text-sm font-bold text-slate-700" htmlFor="password">Password</label>
-                                <a className="text-sm font-bold text-primary hover:text-primary/80 transition-colors" href="#">Forgot password?</a>
-                            </div>
+                            <label className="text-sm font-bold text-slate-700 ml-1" htmlFor="password">Password</label>
                             <div className="relative group">
                                 <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors ${errors.password ? 'text-red-400' : 'text-slate-400 group-focus-within:text-primary'}`}>
                                     <span className="material-symbols-outlined text-xl">lock</span>

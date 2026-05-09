@@ -740,14 +740,12 @@ export async function createWarehouse(data: { name: string; zone: string; total_
         db.prepare(`
             INSERT INTO warehouses (name, zone, total_components, status) 
             VALUES (?, ?, ?, ?)
-            ON CONFLICT(name) DO UPDATE SET
-                zone = excluded.zone,
-                total_components = warehouses.total_components + excluded.total_components,
-                status = excluded.status,
-                updated_at = CURRENT_TIMESTAMP
         `).run(data.name, data.zone, data.total_components, data.status);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed creating warehouse:", error);
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.message?.includes('UNIQUE constraint failed')) {
+            throw new Error("Warehouse with this name already exists");
+        }
         throw new Error("Internal Database Error");
     }
 }
