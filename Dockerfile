@@ -16,8 +16,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Ensure Database directory exists for build-time database access
+RUN mkdir -p /app/Database
+
 # Next.js telemetry is disabled
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Create Database directory so the build process can temporarily initialize SQLite
+RUN mkdir -p /app/Database
 
 RUN npm run build
 
