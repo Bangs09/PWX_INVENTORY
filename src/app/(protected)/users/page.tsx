@@ -22,6 +22,10 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuPortal,
+    DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import {
     Dialog,
@@ -116,25 +120,29 @@ export default function UsersPage() {
         }
     };
 
-    const handleEditRole = async (email: string) => {
+    const handleEditRole = async (email: string, newRole: "admin" | "co-admin" | "user") => {
+        if (email.toLowerCase() === "admin@packetworx.com") {
+            toast.error("Cannot change the role of the System Admin");
+            return;
+        }
+
         const user = users.find((u) => u.email === email);
         if (!user) return;
-        
-        const newRole = user.role === "Co-Admin" ? "User" : "Co-Admin";
-        const backendRole = newRole === "Co-Admin" ? "co-admin" : "user";
         
         try {
             const res = await fetch(`/api/users/${encodeURIComponent(email)}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role: backendRole }),
+                body: JSON.stringify({ role: newRole }),
             });
             
             if (!res.ok) throw new Error("Failed to update role");
             
+            const displayRole = newRole === "co-admin" ? "Co-Admin" : newRole === "admin" ? "Admin" : "User";
+
             setUsers((prev) =>
                 prev.map((u) =>
-                    u.email === email ? { ...u, role: newRole as "Co-Admin" | "User" } : u
+                    u.email === email ? { ...u, role: displayRole as "Co-Admin" | "User" | "Admin" } : u
                 )
             );
             toast.success("User role updated");
@@ -251,12 +259,14 @@ export default function UsersPage() {
                                     <Badge
                                         variant="secondary"
                                         className={
-                                            user.role === "Co-Admin"
-                                                ? "border-violet-200 bg-violet-50 text-violet-700"
-                                                : "border-blue-200 bg-blue-50 text-blue-700"
+                                            user.role === "Admin"
+                                                ? "border-amber-200 bg-amber-50 text-amber-700"
+                                                : user.role === "Co-Admin"
+                                                    ? "border-violet-200 bg-violet-50 text-violet-700"
+                                                    : "border-blue-200 bg-blue-50 text-blue-700"
                                         }
                                     >
-                                        {user.role === "Co-Admin" && <Shield className="mr-1 h-3 w-3" />}
+                                        {(user.role === "Admin" || user.role === "Co-Admin") && <Shield className="mr-1 h-3 w-3" />}
                                         {user.role}
                                     </Badge>
                                 </div>
@@ -286,16 +296,26 @@ export default function UsersPage() {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48 bg-white border-neutral-200 shadow-lg">
-                                        <DropdownMenuItem
-                                            className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer hover:bg-neutral-50 focus:bg-neutral-50"
-                                            onClick={() => handleEditRole(user.email)}
-                                        >
-                                            <Pencil className="h-3.5 w-3.5 text-neutral-500" />
-                                            Edit Role
-                                        </DropdownMenuItem>
+                                        {user.email.toLowerCase() !== "admin@packetworx.com" && (
+                                            <DropdownMenuSub>
+                                                <DropdownMenuSubTrigger className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer hover:bg-neutral-50 focus:bg-neutral-50">
+                                                    <Pencil className="h-3.5 w-3.5 text-neutral-500" />
+                                                    Edit Role
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuPortal>
+                                                    <DropdownMenuSubContent className="bg-white border-neutral-200 shadow-lg min-w-[120px]">
+                                                        <DropdownMenuItem onClick={() => handleEditRole(user.email, "admin")} className="cursor-pointer text-sm">Admin</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleEditRole(user.email, "co-admin")} className="cursor-pointer text-sm">Co-Admin</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleEditRole(user.email, "user")} className="cursor-pointer text-sm">User</DropdownMenuItem>
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuPortal>
+                                            </DropdownMenuSub>
+                                        )}
                                         {role === "admin" && (
                                             <>
-                                                <DropdownMenuSeparator className="bg-neutral-100" />
+                                                {user.email.toLowerCase() !== "admin@packetworx.com" && (
+                                                    <DropdownMenuSeparator className="bg-neutral-100" />
+                                                )}
                                                 <DropdownMenuItem
                                                     className="flex items-center gap-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-50 focus:bg-amber-50"
                                                     onClick={() => { setResetTarget(user); setNewPassword(""); setShowPassword(false); }}
@@ -303,14 +323,18 @@ export default function UsersPage() {
                                                     <KeyRound className="h-3.5 w-3.5" />
                                                     Reset Password
                                                 </DropdownMenuItem>
-                                                <DropdownMenuSeparator className="bg-neutral-100" />
-                                                <DropdownMenuItem
-                                                    className="flex items-center gap-2 text-sm text-red-600 cursor-pointer hover:bg-red-50 focus:bg-red-50"
-                                                    onClick={() => handleDeleteUser(user.email)}
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                    Delete User
-                                                </DropdownMenuItem>
+                                                {user.email.toLowerCase() !== "admin@packetworx.com" && (
+                                                    <>
+                                                        <DropdownMenuSeparator className="bg-neutral-100" />
+                                                        <DropdownMenuItem
+                                                            className="flex items-center gap-2 text-sm text-red-600 cursor-pointer hover:bg-red-50 focus:bg-red-50"
+                                                            onClick={() => handleDeleteUser(user.email)}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                            Delete User
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
                                             </>
                                         )}
                                     </DropdownMenuContent>

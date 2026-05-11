@@ -784,8 +784,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     try {
         const allGateways = db.prepare("SELECT * FROM gateways ORDER BY name ASC").all() as any[];
         const allComponents = db.prepare("SELECT * FROM inventory_components ORDER BY name ASC").all() as ComponentItem[];
-        const warehouseTotal = db.prepare("SELECT SUM(total_components) as total FROM warehouses").get() as { total: number | null };
-        const componentsTotalSum = warehouseTotal.total || 0;
+        const componentsTotalSum = allComponents.length;
         
         const criticalAlerts = allComponents.filter(c => c.stock <= c.min_stock);
 

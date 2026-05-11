@@ -72,7 +72,7 @@ interface ComponentRow {
 }
 
 // Helper to generate a unique ID (client-safe for first render if needed)
-const generateId = () => (typeof window !== "undefined" ? crypto.randomUUID() : "TEMP-ID");
+const generateId = () => (typeof window !== "undefined" && window.crypto?.randomUUID ? window.crypto.randomUUID() : `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
 const emptyComponent = (lineNumber: number): ComponentRow => ({
     id: generateId(),

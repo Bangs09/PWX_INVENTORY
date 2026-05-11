@@ -47,6 +47,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ em
             if (session.role !== "admin") {
                 return NextResponse.json({ error: "Only admins can update roles" }, { status: 403 });
             }
+            if (decodedEmail.toLowerCase() === "admin@packetworx.com") {
+                return NextResponse.json({ error: "Cannot change the role of the System Admin" }, { status: 403 });
+            }
             updates.role = role.toLowerCase(); // Ensure formatting mapping like 'admin', 'co-admin', 'user'
         }
 
@@ -76,6 +79,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ e
         }
         if (session.email === decodedEmail) {
             return NextResponse.json({ error: "You cannot delete your own account" }, { status: 403 });
+        }
+        if (decodedEmail.toLowerCase() === "admin@packetworx.com") {
+            return NextResponse.json({ error: "Cannot delete the System Admin account" }, { status: 403 });
         }
 
         await deleteUserByEmail(decodedEmail);

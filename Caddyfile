@@ -1,0 +1,4 @@
+pwxnetteam.dpdns.org {
+	tls internal
+	reverse_proxy web:3000
+}
