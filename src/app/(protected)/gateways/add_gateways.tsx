@@ -65,6 +65,16 @@ export function AddGatewaysDialog({
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
   const [warehouses, setWarehouses] = useState<any[]>([]);
 
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      sku: "",
+      quantity: "1",
+      location: "",
+    },
+  });
+
   useEffect(() => {
     fetch("/api/warehouses")
       .then(res => res.json())
@@ -77,17 +87,7 @@ export function AddGatewaysDialog({
         }
       })
       .catch(err => console.error("Failed to load warehouses:", err));
-  }, []);
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      sku: "",
-      quantity: "1",
-      location: "",
-    },
-  });
+  }, [form]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

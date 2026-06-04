@@ -86,20 +86,6 @@ export function AddComponentsDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [warehouses, setWarehouses] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetch("/api/warehouses")
-      .then(res => res.json())
-      .then(data => {
-        setWarehouses(data);
-        if (data.length > 0) {
-          form.setValue("warehouse", data[0].name);
-        } else {
-          form.setValue("warehouse", "");
-        }
-      })
-      .catch(err => console.error("Failed to load warehouses:", err));
-  }, []);
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -113,6 +99,20 @@ export function AddComponentsDialog({
       tag: "Local",
     },
   });
+
+  useEffect(() => {
+    fetch("/api/warehouses")
+      .then(res => res.json())
+      .then(data => {
+        setWarehouses(data);
+        if (data.length > 0) {
+          form.setValue("warehouse", data[0].name);
+        } else {
+          form.setValue("warehouse", "");
+        }
+      })
+      .catch(err => console.error("Failed to load warehouses:", err));
+  }, [form]);
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
       const file = e.target.files?.[0];

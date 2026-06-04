@@ -234,6 +234,18 @@ export function BOMManagementInner({
         };
     }, [loadBOMs, selectedBOM]);
 
+    const handleRowClick = useCallback(async (bom: BOMEntry) => {
+        setSelectedBOM(bom);
+        setSheetOpen(true);
+        try {
+            const fullBOM = await fetchBOMByIdFromServer(bom.id);
+            setSelectedBOM(fullBOM);
+        } catch (error: any) {
+            console.error("Failed to load BOM details:", error);
+            toast.error(error.message || "Failed to load BOM details");
+        }
+    }, []);
+
     // Deep link ?bom=<id>
     useEffect(() => {
         const id = searchParams.get("bom");
@@ -244,19 +256,7 @@ export function BOMManagementInner({
             }
             router.replace(basePath, { scroll: false });
         }
-    }, [searchParams, allBOMs, router, basePath]);
-
-    const handleRowClick = async (bom: BOMEntry) => {
-        setSelectedBOM(bom);
-        setSheetOpen(true);
-        try {
-            const fullBOM = await fetchBOMByIdFromServer(bom.id);
-            setSelectedBOM(fullBOM);
-        } catch (error: any) {
-            console.error("Failed to load BOM details:", error);
-            toast.error(error.message || "Failed to load BOM details");
-        }
-    };
+    }, [searchParams, allBOMs, router, basePath, handleRowClick]);
 
     const getInventoryImpactForSku = useCallback((sku: string, requiredQty: number) => {
         const normSku = sku.toUpperCase().trim();
