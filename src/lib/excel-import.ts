@@ -64,20 +64,25 @@ export async function processExcelImport(
             gwMap.set(`${g.sku.toLowerCase()}-${loc.toLowerCase()}`, { ...g });
         }
 
+        const sheetsMap = new Map<string, XLSX.WorkSheet>(Object.entries(wb.Sheets));
+
         // --- Process Components ---
-        let wsComponents = wb.Sheets["Components"];
+        let wsComponents = sheetsMap.get("Components");
         if (!wsComponents) {
             const componentSheetName = wb.SheetNames.find(name => name.toLowerCase().includes("component") || name.toLowerCase().includes("item"));
             if (componentSheetName) {
-                wsComponents = wb.Sheets[componentSheetName];
+                wsComponents = sheetsMap.get(componentSheetName);
             } else if (wb.SheetNames.length > 0) {
                 // Ultimate fallback: assume the first sheet is Components if it has relevant columns
-                const firstSheet = wb.Sheets[wb.SheetNames[0]];
-                const firstSheetHeaders = XLSX.utils.sheet_to_json<any>(firstSheet)[0] || {};
-                if (firstSheetHeaders["Component"] || firstSheetHeaders["Name"] || firstSheetHeaders["SKU"] || firstSheetHeaders["Stock"]) {
-                    wsComponents = firstSheet;
-                } else if (wb.SheetNames.length === 1) {
-                    wsComponents = firstSheet;
+                const firstSheetName = wb.SheetNames[0];
+                const firstSheet = firstSheetName ? sheetsMap.get(firstSheetName) : undefined;
+                if (firstSheet) {
+                    const firstSheetHeaders = XLSX.utils.sheet_to_json<any>(firstSheet)[0] || {};
+                    if (firstSheetHeaders["Component"] || firstSheetHeaders["Name"] || firstSheetHeaders["SKU"] || firstSheetHeaders["Stock"]) {
+                        wsComponents = firstSheet;
+                    } else if (wb.SheetNames.length === 1) {
+                        wsComponents = firstSheet;
+                    }
                 }
             }
         }
@@ -152,21 +157,27 @@ export async function processExcelImport(
         }
 
         // --- Process Gateways ---
-        let wsGateways = wb.Sheets["Gateways"];
+        let wsGateways = sheetsMap.get("Gateways");
         if (!wsGateways) {
             const gatewaySheetName = wb.SheetNames.find(name => name.toLowerCase().includes("gateway") || name.toLowerCase().includes("connection"));
             if (gatewaySheetName) {
-                wsGateways = wb.Sheets[gatewaySheetName];
+                wsGateways = sheetsMap.get(gatewaySheetName);
             } else if (!wsComponents && wb.SheetNames.length === 1) {
                 // If it wasn't a components sheet, maybe it's a gateways sheet
-                 const firstSheet = wb.Sheets[wb.SheetNames[0]];
-                 const headers = XLSX.utils.sheet_to_json<any>(firstSheet)[0] || {};
-                 if (headers["Location"] || headers["Quantity"]) {
-                     wsGateways = firstSheet;
-                 }
+                const firstSheetName = wb.SheetNames[0];
+                const firstSheet = firstSheetName ? sheetsMap.get(firstSheetName) : undefined;
+                if (firstSheet) {
+                    const headers = XLSX.utils.sheet_to_json<any>(firstSheet)[0] || {};
+                    if (headers["Location"] || headers["Quantity"]) {
+                        wsGateways = firstSheet;
+                    }
+                }
             } else if (wsComponents && wb.SheetNames.length > 1) {
                 // If first sheet is components, assume second sheet is gateways
-                wsGateways = wb.Sheets[wb.SheetNames[1]];
+                const secondSheetName = wb.SheetNames[1];
+                if (secondSheetName) {
+                    wsGateways = sheetsMap.get(secondSheetName);
+                }
             }
         }
 

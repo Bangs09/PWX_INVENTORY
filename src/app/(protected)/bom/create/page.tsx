@@ -443,7 +443,7 @@ function CreateBOMPageInner() {
             <div className="mx-auto max-w-7xl px-6 py-8">
                 {isReadOnly && (
                     <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 shadow-sm flex items-center gap-3">
-                        <span className="material-symbols-outlined text-2xl text-amber-600">warning</span>
+                        <span className="material-symbols-outlined text-2xl text-amber-600">{"warning"}</span>
                         <div className="text-sm font-medium">
                             This BOM is in <span className="font-bold">{bomStatus}</span> status and is read-only. It cannot be modified.
                         </div>

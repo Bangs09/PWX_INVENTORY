@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { sseManager } from './sse-clients';
 
 // Initialize the SQLite Connection.
 const dbPath = path.join(process.cwd(), 'Database', 'database.sqlite');
@@ -730,7 +731,6 @@ export async function logActivity(action: string, detail: string, emailOrName: s
             RETURNING *
         `).get(action, detail, userName, emailOrName, itemSku) as any;
         
-        const { sseManager } = require('./sse-clients');
         sseManager.broadcast("activity_update", row);
     } catch (error) {
         console.error("Failed creating activity log:", error);
@@ -1123,7 +1123,6 @@ export async function submitBOMForApproval(id: string, email: string): Promise<B
     try {
         const updated = executeTx();
         // Notify of changes via SSE
-        const { sseManager } = require('./sse-clients');
         sseManager.broadcast("refresh", updated);
         return updated;
     } catch (error) {
@@ -1228,7 +1227,6 @@ export async function approveBOM(id: string, adminEmail: string): Promise<BOM> {
     try {
         const updated = executeTx();
         // Notify of changes via SSE
-        const { sseManager } = require('./sse-clients');
         sseManager.broadcast("refresh", updated);
         return updated;
     } catch (error) {
@@ -1272,7 +1270,6 @@ export async function rejectBOM(id: string, remarks: string, adminEmail: string)
     try {
         const updated = executeTx();
         // Notify of changes via SSE
-        const { sseManager } = require('./sse-clients');
         sseManager.broadcast("refresh", updated);
         return updated;
     } catch (error) {
@@ -1318,7 +1315,6 @@ export async function archiveBOM(id: string, email: string): Promise<BOM> {
 
     try {
         const updated = executeTx();
-        const { sseManager } = require('./sse-clients');
         sseManager.broadcast("refresh", updated);
         return updated;
     } catch (error) {
