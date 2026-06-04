@@ -849,45 +849,54 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
         
         const criticalAlerts = allComponents.filter(c => c.stock <= c.min_stock);
 
-        const gwGroup: Record<string, { name: string; count: number; items: any[] }> = {};
+        const gwGroup = new Map<string, { name: string; count: number; items: any[] }>();
         const gwTypes = ['Femto Outdoor', 'Gateway 868 Indoor & Outdoor', 'Gateway 915 Indoor & Outdoor'];
-        gwTypes.forEach(t => gwGroup[t] = { name: t, count: 0, items: [] });
+        gwTypes.forEach(t => gwGroup.set(t, { name: t, count: 0, items: [] }));
         
         allGateways.forEach(g => {
             const type = g.type || 'Gateway 915 Indoor & Outdoor';
-            if (!gwGroup[type]) gwGroup[type] = { name: type, count: 0, items: [] };
-            gwGroup[type].count++;
-            gwGroup[type].items.push({ name: g.name, location: g.location });
+            if (!gwGroup.has(type)) {
+                gwGroup.set(type, { name: type, count: 0, items: [] });
+            }
+            const grp = gwGroup.get(type)!;
+            grp.count++;
+            grp.items.push({ name: g.name, location: g.location });
         });
 
-        const compGroup: Record<string, { name: string; count: number; items: any[] }> = {};
+        const compGroup = new Map<string, { name: string; count: number; items: any[] }>();
         allComponents.forEach(c => {
             const cat = c.category || 'Uncategorized';
-            if (!compGroup[cat]) compGroup[cat] = { name: cat, count: 0, items: [] };
-            compGroup[cat].count++;
-            compGroup[cat].items.push({ name: c.name, sku: c.sku, stock: c.stock });
+            if (!compGroup.has(cat)) {
+                compGroup.set(cat, { name: cat, count: 0, items: [] });
+            }
+            const grp = compGroup.get(cat)!;
+            grp.count++;
+            grp.items.push({ name: c.name, sku: c.sku, stock: c.stock });
         });
 
-        const alertGroup: Record<string, { name: string; count: number; items: any[] }> = {};
+        const alertGroup = new Map<string, { name: string; count: number; items: any[] }>();
         criticalAlerts.forEach(c => {
             const cat = c.category || 'Uncategorized';
-            if (!alertGroup[cat]) alertGroup[cat] = { name: cat, count: 0, items: [] };
-            alertGroup[cat].count++;
-            alertGroup[cat].items.push(c);
+            if (!alertGroup.has(cat)) {
+                alertGroup.set(cat, { name: cat, count: 0, items: [] });
+            }
+            const grp = alertGroup.get(cat)!;
+            grp.count++;
+            grp.items.push(c);
         });
 
         return {
             gateways: {
                 total: allGateways.length,
-                categories: Object.values(gwGroup).filter(g => g.count > 0)
+                categories: Array.from(gwGroup.values()).filter(g => g.count > 0)
             },
             components: {
                 total: componentsTotalSum,
-                categories: Object.values(compGroup).sort((a,b) => b.count - a.count)
+                categories: Array.from(compGroup.values()).sort((a,b) => b.count - a.count)
             },
             alerts: {
                 total: criticalAlerts.length,
-                categories: Object.values(alertGroup).sort((a,b) => b.count - a.count)
+                categories: Array.from(alertGroup.values()).sort((a,b) => b.count - a.count)
             }
         };
     } catch (error) {
