@@ -1,4 +1,4 @@
-import type { GatewayItem } from "@/app/(protected)/gateways/add_gateways";
+import type { GatewayItem } from "@/features/gateways/components/add_gateways";
 
 export const GATEWAY_CATALOG_KEY = "pwx_gateway_catalog";
 

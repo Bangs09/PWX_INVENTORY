@@ -1,4 +1,4 @@
-import type { ComponentItem } from "@/app/(protected)/components/add_components";
+import type { ComponentItem } from "@/features/components/components/add_components";
 
 const baseItems = [
     { name: "10ft RSC Pipe 1.5inch", sku: "PIPE-RSC-10FT-15", stock: 50, min_stock: 100, category: "Hardware" },

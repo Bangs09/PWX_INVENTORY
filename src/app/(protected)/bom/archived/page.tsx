@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { BOMManagementInner } from "../bom-management-inner";
+import { BOMManagementInner } from "@/features/bom/components/bom-management-inner";
 
 export default function ArchivedBOMPage() {
     return (

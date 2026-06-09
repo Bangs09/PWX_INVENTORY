@@ -29,7 +29,7 @@ import {
 import { useClientRole } from "@/lib/use-client-role";
 import { addRequest } from "@/lib/stock-requests";
 import { exportComponentsToExcel } from "@/lib/excel-import";
-import { AddComponentsDialog, ComponentItem } from "./add_components";
+import { AddComponentsDialog, ComponentItem } from "@/features/components/components/add_components";
 import {
     AlertDialog,
     AlertDialogAction,

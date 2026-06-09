@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
-import type { ComponentItem } from "@/app/(protected)/components/add_components";
-import type { GatewayItem } from "@/app/(protected)/gateways/add_gateways";
-import type { BOMEntry } from "@/app/(protected)/bom/bom-storage";
+import type { ComponentItem } from "@/features/components/components/add_components";
+import type { GatewayItem } from "@/features/gateways/components/add_gateways";
+import type { BOMEntry } from "@/features/bom/lib/bom-storage";
 
 export function downloadExcelTemplate() {
     // 1. Create a blank workbook

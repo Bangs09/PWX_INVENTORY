@@ -14,7 +14,7 @@ import { Users, Search, Filter, Shield, MoreVertical, Trash2, Pencil, KeyRound, 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { AddUserDialog, UserAccount } from "./add_user";
+import { AddUserDialog, UserAccount } from "@/features/users/components/add_user";
 import { useClientRole } from "@/lib/use-client-role";
 import {
     DropdownMenu,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ComponentItem } from "@/app/(protected)/components/add_components";
+import type { ComponentItem } from "@/features/components/components/add_components";
 import {
     Dialog,
     DialogContent,

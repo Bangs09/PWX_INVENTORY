@@ -9,13 +9,13 @@ import {
     Suspense,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { fetchBOMByIdFromServer, saveBOMToServer, type StoredComponentRow } from "../bom-storage";
-import type { ComponentItem } from "@/app/(protected)/components/add_components";
+import { fetchBOMByIdFromServer, saveBOMToServer, type StoredComponentRow } from "@/features/bom/lib/bom-storage";
+import type { ComponentItem } from "@/features/components/components/add_components";
 import { toast } from "sonner";
 import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
 // import { loadComponentCatalog } from "@/lib/inventory-catalog";
 import { formatCurrency } from "@/lib/format-currency";
-import { CatalogPickerDialog } from "../catalog-picker-dialog";
+import { CatalogPickerDialog } from "@/features/bom/components/catalog-picker-dialog";
 import {
     Card,
     CardContent,

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { AddWarehouseDialog, WarehouseLocation } from "./add_warehouse";
+import { useState, useEffect, useRef } from "react";
+import { AddWarehouseDialog, WarehouseLocation } from "@/features/warehouse/components/add_warehouse";
 import {
     Card,
     CardContent,
@@ -30,6 +30,10 @@ export default function WarehousePage() {
     const [isLoading, setIsLoading] = useState(true);
     
     const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+    const selectedLocationRef = useRef(selectedLocation);
+    useEffect(() => {
+        selectedLocationRef.current = selectedLocation;
+    }, [selectedLocation]);
     const [componentSearch, setComponentSearch] = useState("");
     const [locationComponents, setLocationComponents] = useState<any[]>([]);
     const [isFetchingSub, setIsFetchingSub] = useState(false);
@@ -57,15 +61,14 @@ export default function WarehousePage() {
 
     const fetchWarehouses = async () => {
         try {
-            setIsLoading(true);
             const res = await fetch('/api/warehouses');
             if (res.ok) {
                 const data = await res.json();
                 setLocations(data);
                 
                 // If a location is selected, also refresh its specific component list
-                if (selectedLocation) {
-                    fetchLocationComponents(selectedLocation);
+                if (selectedLocationRef.current) {
+                    fetchLocationComponents(selectedLocationRef.current);
                 }
             }
         } catch (error) {
@@ -217,7 +220,7 @@ export default function WarehousePage() {
                             }}
                             className="group cursor-pointer border-neutral-100 bg-white shadow-sm transition-all duration-300 hover:border-emerald-200 hover:shadow-lg hover:-translate-y-1 rounded-[22px] overflow-hidden"
                         >
-                            <CardHeader className="pb-4 bg-neutral-50/30">
+                            <CardHeader className="pb-4">
                                 <div className="flex items-start justify-between relative">
                                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 group-hover:scale-110 group-hover:bg-emerald-100 transition-all duration-300">
                                         <WarehouseIcon className="h-5 w-5" />

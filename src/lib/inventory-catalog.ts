@@ -1,4 +1,4 @@
-import type { ComponentItem } from "@/app/(protected)/components/add_components";
+import type { ComponentItem } from "@/features/components/components/add_components";
 
 export const POCKETWORX_COMPONENTS_KEY = "pocketworx_components";
 

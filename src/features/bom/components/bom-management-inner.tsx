@@ -87,7 +87,7 @@ import {
     rejectBOMOnServer,
     archiveBOMOnServer,
     deleteBOMOnServer,
-} from "./bom-storage";
+} from "../lib/bom-storage";
 import { useClientRole } from "@/lib/use-client-role";
 import { exportBOMToExcel } from "@/lib/excel-import";
 import { toast } from "sonner";
@@ -332,7 +332,10 @@ export function BOMManagementInner({
                 phase: fullBOM.phase,
                 targetQty: fullBOM.targetQty,
                 description: fullBOM.description,
-                componentRows: fullBOM.componentRows,
+                componentRows: fullBOM.componentRows?.map((row) => {
+                    const { id, ...rest } = row;
+                    return rest;
+                }),
                 totalCost: fullBOM.totalCost,
                 status: "Draft",
             };

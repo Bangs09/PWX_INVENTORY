@@ -1014,9 +1014,9 @@ export async function saveBOM(bom: Partial<BOM> & { components?: Partial<BOMItem
         const cpn = bom.cpn || "";
         const revision = bom.revision || "Rev A";
         const phase = bom.phase || "Prototype";
-        const target_qty = bom.target_qty ?? 1;
+        const target_qty = bom.target_qty ?? (bom as any).targetQty ?? 1;
         const description = bom.description || null;
-        const total_cost = bom.total_cost ?? 0;
+        const total_cost = bom.total_cost ?? (bom as any).totalCost ?? 0;
         const status = existing ? existing.status : "Draft"; // Keep current status
         const author = existing ? bom.author || "system" : email;
 
