@@ -38,6 +38,15 @@ export default function LoginPage() {
         }
     }, [lockoutTime]);
 
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.location.search) {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has("email") || params.has("password") || params.has("token")) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+    }, []);
+
     const {
         register,
         handleSubmit,
@@ -131,7 +140,7 @@ export default function LoginPage() {
                         <p className="text-slate-500 text-lg">Please enter your credentials to access your account.</p>
                     </div>
 
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-fade-in-up delay-200">
+                    <form onSubmit={handleSubmit(onSubmit)} method="POST" className="space-y-6 animate-fade-in-up delay-200">
                         {errors.root && (
                             <div className="p-3 rounded-xl bg-red-100 text-red-600 text-sm font-medium border border-red-200 text-center animate-fade-in-up">
                                 {errors.root.message}

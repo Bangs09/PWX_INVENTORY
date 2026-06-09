@@ -129,7 +129,7 @@ export default function ProtectedLayout({
                     </div>
                 </main>
             </div>
-            
+
             {/* Forced Password Change Modal */}
             <Dialog open={mustChangePassword}>
                 <DialogContent className="sm:max-w-md [&>button.absolute.right-4.top-4]:hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
@@ -148,12 +148,12 @@ export default function ProtectedLayout({
                                 <KeyRound className="h-4 w-4 text-neutral-400" />
                                 New Password
                             </Label>
-                            <Input 
-                                id="new-pwd" 
-                                type="password" 
+                            <Input
+                                id="new-pwd"
+                                type="password"
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
-                                placeholder="Enter at least 8 characters..." 
+                                placeholder="Enter at least 8 characters..."
                             />
                         </div>
                     </div>

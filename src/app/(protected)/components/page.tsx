@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Card,
     CardContent,
@@ -62,6 +63,7 @@ function ComponentDetailDialog({
     onUpdate: (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number, newTag?: string, unitCost?: number) => void;
     role: string;
 }) {
+    const { t } = useTranslation();
     const [inputValue, setInputValue] = useState<string>("");
     const [nameValue, setNameValue] = useState<string>("");
     const [minStockValue, setMinStockValue] = useState<string>("");
@@ -72,12 +74,7 @@ function ComponentDetailDialog({
     const [reqQty, setReqQty] = useState<string>("1");
     const [submitted, setSubmitted] = useState(false);
 
-    const [prevComp, setPrevComp] = useState<ComponentItem | null>(null);
-    const [prevOpen, setPrevOpen] = useState<boolean>(false);
-
-    if (comp !== prevComp || open !== prevOpen) {
-        setPrevComp(comp);
-        setPrevOpen(open);
+    useEffect(() => {
         if (comp && open) {
             setInputValue(comp.stock.toString());
             setNameValue(comp.name);
@@ -88,7 +85,7 @@ function ComponentDetailDialog({
             setReqQty("1");
             setSubmitted(false);
         }
-    }
+    }, [comp, open]);
 
     const currentQty = parseInt(inputValue, 10);
     const safeQty = isNaN(currentQty) ? 0 : Math.max(0, currentQty);
@@ -155,7 +152,7 @@ function ComponentDetailDialog({
                         {role === "admin" && (
                             <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer text-white backdrop-blur-[2px]">
                                 <Upload className="h-6 w-6 mb-1.5 drop-shadow-md" />
-                                <span className="text-xs font-medium drop-shadow-md">Upload</span>
+                                <span className="text-xs font-medium drop-shadow-md">{t('Upload')}</span>
                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
                             </label>
                         )}
@@ -193,12 +190,12 @@ function ComponentDetailDialog({
                                     className="text-[11px] px-2 py-0.5 rounded border border-neutral-200 bg-white text-neutral-700 shadow-sm focus:outline-none focus:border-violet-500 hover:border-neutral-300 transition-colors cursor-pointer appearance-none pr-6 relative"
                                     style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.1rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25em 1.25em' }}
                                 >
-                                    <option value="Local">Local</option>
-                                    <option value="Import">Import</option>
+                                    <option value="Local">{t('Local')}</option>
+                                    <option value="Import">{t('Import')}</option>
                                 </select>
                             ) : (
                                 <Badge variant="secondary" className={`text-[11px] px-2 py-0.5 ${comp.tag === 'Import' ? 'bg-purple-50 text-purple-700 border-purple-100/50' : 'bg-blue-50 text-blue-700 border-blue-100/50'}`}>
-                                    {comp.tag || "Local"}
+                                    {comp.tag || t("Local")}
                                 </Badge>
                             )}
                             <Badge variant="secondary" className={`text-[11px] px-2 py-0.5 ${statusClasses}`}>
@@ -210,7 +207,7 @@ function ComponentDetailDialog({
                     {/* Stats */}
                     <div className="grid grid-cols-2 gap-2.5">
                         <div className="flex flex-col gap-1 p-3 rounded-xl bg-neutral-50/80 border border-neutral-100">
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Critical Stock</span>
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">{t('Critical Stock')}</span>
                             <span className="font-semibold text-neutral-900 text-base">
                                 {role === "admin" ? (
                                     <div className="flex items-center gap-1">
@@ -221,15 +218,15 @@ function ComponentDetailDialog({
                                             onChange={(e) => { if (/^\d*$/.test(e.target.value)) setMinStockValue(e.target.value); }}
                                             className="w-12 bg-transparent border-b border-neutral-300 focus:border-violet-500 focus:outline-none text-center"
                                         />
-                                        <span className="text-xs text-neutral-400 font-normal">pcs</span>
+                                        <span className="text-xs text-neutral-400 font-normal">{t('pcs')}</span>
                                     </div>
                                 ) : (
-                                    <>{comp.min_stock} <span className="text-xs text-neutral-400 font-normal">pcs</span></>
+                                    <>{comp.min_stock} <span className="text-xs text-neutral-400 font-normal">{t('pcs')}</span></>
                                 )}
                             </span>
                         </div>
                         <div className="flex flex-col gap-1 p-3 rounded-xl bg-neutral-50/80 border border-neutral-100">
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Unit Cost</span>
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">{t('Unit Cost')}</span>
                             <span className="font-semibold text-neutral-900 text-base">
                                 {role === "admin" ? (
                                     <div className="flex items-center gap-1">
@@ -247,8 +244,8 @@ function ComponentDetailDialog({
                             </span>
                         </div>
                         <div className="flex flex-col gap-1 p-3 rounded-xl bg-neutral-50/80 border border-neutral-100">
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Stock</span>
-                            <span className="font-semibold text-neutral-900 text-base">{comp.stock} <span className="text-xs text-neutral-400 font-normal">pcs</span></span>
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">{t('Stock')}</span>
+                            <span className="font-semibold text-neutral-900 text-base">{comp.stock} <span className="text-xs text-neutral-400 font-normal">{t('pcs')}</span></span>
                         </div>
                     </div>
 
@@ -257,9 +254,9 @@ function ComponentDetailDialog({
                         <>
                             <div className="space-y-2.5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-neutral-900">Adjust Stock</span>
+                                    <span className="text-sm font-semibold text-neutral-900">{t('Adjust Stock')}</span>
                                     {inputValue === "" && (
-                                        <span className="text-[10px] font-medium text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Invalid</span>
+                                        <span className="text-[10px] font-medium text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">{t('Invalid')}</span>
                                     )}
                                 </div>
                                 <div className="flex items-center p-1 rounded-xl border border-neutral-200 bg-white shadow-sm transition-all focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-500/10">
@@ -274,10 +271,10 @@ function ComponentDetailDialog({
                             </div>
                             <div className="flex gap-2.5 pt-1">
                                 <Button variant="ghost" className="flex-1 h-10 rounded-lg text-neutral-600 hover:bg-neutral-100 text-sm font-medium" onClick={onClose}>
-                                    Cancel
+                                    {t('Cancel')}
                                 </Button>
                                 <Button className="flex-[1.5] h-10 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-md" onClick={handleSave} disabled={inputValue === ""}>
-                                    Save Changes
+                                    {t('Save Changes')}
                                 </Button>
                             </div>
                         </>
@@ -290,16 +287,16 @@ function ComponentDetailDialog({
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                                     <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                 </div>
-                                <p className="text-sm font-semibold text-neutral-900">Request Sent!</p>
-                                <p className="text-xs text-neutral-500">The administrator will review your withdrawal request shortly.</p>
-                                <Button variant="ghost" className="mt-1 h-9 text-sm" onClick={onClose}>Close</Button>
+                                <p className="text-sm font-semibold text-neutral-900">{t('Request Sent!')}</p>
+                                <p className="text-xs text-neutral-500">{t('The administrator will review your withdrawal request shortly.')}</p>
+                                <Button variant="ghost" className="mt-1 h-9 text-sm" onClick={onClose}>{t('Close')}</Button>
                             </div>
                         ) : (
                             <>
                                 <div className="space-y-2.5">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-semibold text-neutral-900">Request Withdrawal Qty</span>
-                                        <span className="text-xs text-neutral-400">Available: {comp.stock} pcs</span>
+                                        <span className="text-sm font-semibold text-neutral-900">{t('Request Withdrawal Qty')}</span>
+                                        <span className="text-xs text-neutral-400">{t('Available:')} {comp.stock} {t('pcs')}</span>
                                     </div>
                                     <div className="flex items-center p-1 rounded-xl border border-neutral-200 bg-white shadow-sm focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-500/10">
                                         <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-lg hover:bg-neutral-100 text-neutral-600"
@@ -316,18 +313,18 @@ function ComponentDetailDialog({
                                             <Plus className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <p className="text-[11px] text-neutral-400 text-center">Your request will be sent to the admin for approval.</p>
+                                    <p className="text-[11px] text-neutral-400 text-center">{t('Your request will be sent to the admin for approval.')}</p>
                                 </div>
                                 <div className="flex gap-2.5 pt-1">
                                     <Button variant="ghost" className="flex-1 h-10 rounded-lg text-neutral-600 hover:bg-neutral-100 text-sm font-medium" onClick={onClose}>
-                                        Cancel
+                                        {t('Cancel')}
                                     </Button>
                                     <Button
                                         className="flex-[1.5] h-10 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-md"
                                         onClick={handleSendRequest}
                                         disabled={!reqQty || parseInt(reqQty) <= 0 || parseInt(reqQty) > comp.stock}
                                     >
-                                        Send Request
+                                        {t('Send Request')}
                                     </Button>
                                 </div>
                             </>
@@ -342,6 +339,7 @@ function ComponentDetailDialog({
 
 // --- Main Page ---
 export default function ComponentsPage() {
+    const { t } = useTranslation();
     const { role } = useClientRole();
     const [components, setComponents] = useState<ComponentItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -499,10 +497,10 @@ export default function ComponentsPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
-                        Components
+                        {t('Components')}
                     </h1>
                     <p className="mt-1 text-neutral-500">
-                        Track and manage electronic components inventory
+                        {t('Track and manage electronic components inventory')}
                     </p>
                 </div>
                 {(role === "admin" || role === "co-admin") && (
@@ -513,7 +511,7 @@ export default function ComponentsPage() {
                             className="bg-white text-neutral-700 hover:bg-neutral-50 h-10 border-neutral-200 shadow-sm transition-colors"
                         >
                             <Download className="mr-2 h-4 w-4" />
-                            Export Excel
+                            {t('Export Excel')}
                         </Button>
                         <AddComponentsDialog
                             onAdd={handleAddComponent}
@@ -528,7 +526,7 @@ export default function ComponentsPage() {
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
                     <Input
-                        placeholder="Search components by name or SKU..."
+                        placeholder={t('Search components by name or SKU...')}
                         className="border-neutral-200 bg-white pl-9 text-neutral-900 placeholder:text-neutral-500 w-full"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
@@ -536,27 +534,27 @@ export default function ComponentsPage() {
                 </div>
                 <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
                     <SelectTrigger className="w-full sm:w-[200px] border-neutral-200 bg-white text-neutral-900">
-                        <SelectValue placeholder="All Warehouses" />
+                        <SelectValue placeholder={t('All Warehouses')} />
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4} className="bg-white border-neutral-200 text-neutral-900 z-50">
-                        <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Warehouses</SelectItem>
+                        <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">{t('All Warehouses')}</SelectItem>
                         {warehouses.length > 0 ? (
                             warehouses.map(w => (
                                 <SelectItem key={w.name} value={w.name} className="text-neutral-900 cursor-pointer focus:bg-neutral-100">{w.name}</SelectItem>
                             ))
                         ) : (
-                            <SelectItem value="none" disabled className="text-neutral-500">No warehouses available</SelectItem>
+                            <SelectItem value="none" disabled className="text-neutral-500">{t('No warehouses available')}</SelectItem>
                         )}
                     </SelectContent>
                 </Select>
                 <Select value={tagFilter} onValueChange={setTagFilter}>
                     <SelectTrigger className="w-full sm:w-[150px] border-neutral-200 bg-white text-neutral-900">
-                        <SelectValue placeholder="All Types" />
+                        <SelectValue placeholder={t('All Types')} />
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4} className="bg-white border-neutral-200 text-neutral-900 z-50">
-                        <SelectItem value="All Types" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Types</SelectItem>
-                        <SelectItem value="Local" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Local</SelectItem>
-                        <SelectItem value="Import" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Import</SelectItem>
+                        <SelectItem value="All Types" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">{t('All Types')}</SelectItem>
+                        <SelectItem value="Local" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">{t('Local')}</SelectItem>
+                        <SelectItem value="Import" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">{t('Import')}</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -564,9 +562,9 @@ export default function ComponentsPage() {
             {/* Component List */}
             <Card className="border-neutral-200 bg-white shadow-sm">
                 <CardHeader>
-                    <CardTitle className="text-neutral-900">All Components</CardTitle>
+                    <CardTitle className="text-neutral-900">{t('All Components')}</CardTitle>
                     <CardDescription className="text-neutral-500">
-                        {filtered.length} component{filtered.length !== 1 ? "s" : ""} tracked — click a row to view details
+                        {filtered.length} {filtered.length !== 1 ? t('components') : t('component')} {t('tracked — click a row to view details')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -601,15 +599,15 @@ export default function ComponentsPage() {
                                     <div className="flex items-center gap-4">
                                         <div className="hidden text-right sm:block">
                                             <p className="text-xs text-neutral-500">
-                                                Stock:{" "}
-                                                <span className={textClass}>{comp.stock} pcs</span>
+                                                {t('Stock:')}{" "}
+                                                <span className={textClass}>{comp.stock} {t('pcs')}</span>
                                             </p>
                                         </div>
                                         <Badge
                                             variant="secondary"
                                             className={`text-xs border ${comp.tag === 'Import' ? 'border-purple-200 bg-purple-50 text-purple-700' : 'border-blue-200 bg-blue-50 text-blue-700'}`}
                                         >
-                                            {comp.tag || "Local"}
+                                            {comp.tag || t("Local")}
                                         </Badge>
                                         <Badge
                                             variant="secondary"
@@ -633,7 +631,7 @@ export default function ComponentsPage() {
                                             <button
                                                 onClick={(e) => handleDelete(e, comp.sku, comp.warehouse, comp.name)}
                                                 className="ml-1 p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                                                title="Delete component"
+                                                title={t("Delete component")}
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </button>
@@ -643,7 +641,7 @@ export default function ComponentsPage() {
                             );
                         })}
                         {filtered.length === 0 && (
-                            <p className="text-center text-sm text-neutral-400 py-8">No components match your search.</p>
+                            <p className="text-center text-sm text-neutral-400 py-8">{t('No components match your search.')}</p>
                         )}
                     </div>
                 </CardContent>
@@ -662,14 +660,14 @@ export default function ComponentsPage() {
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                 <AlertDialogContent className="sm:max-w-[420px]">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Component</AlertDialogTitle>
+                        <AlertDialogTitle>{t('Delete Component')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete <span className="font-semibold text-neutral-900">{componentToDelete?.name}</span>? 
-                            This action cannot be undone and will permanently remove the item from this warehouse.
+                            {t('Are you sure you want to delete')} <span className="font-semibold text-neutral-900">{componentToDelete?.name}</span>? 
+                            {t('This action cannot be undone and will permanently remove the item from this warehouse.')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeleting}>{t('Cancel')}</AlertDialogCancel>
                         <AlertDialogAction 
                             onClick={(e) => {
                                 e.preventDefault();
@@ -678,7 +676,7 @@ export default function ComponentsPage() {
                             className="bg-red-600 hover:bg-red-700 text-white"
                             disabled={isDeleting}
                         >
-                            {isDeleting ? "Deleting..." : "Delete"}
+                            {isDeleting ? t("Deleting...") : t("Delete")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

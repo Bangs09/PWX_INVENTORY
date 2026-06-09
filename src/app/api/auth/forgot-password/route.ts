@@ -3,6 +3,16 @@ import { getUserByEmail } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
     try {
+        // Enforce HTTPS in production environments
+        if (process.env.NODE_ENV === "production") {
+            const proto = req.headers.get("x-forwarded-proto");
+            if (proto && proto !== "https") {
+                return NextResponse.json(
+                    { error: "HTTPS is required for authentication traffic." },
+                    { status: 400 }
+                );
+            }
+        }
         const { email } = await req.json();
 
         if (!email) {
@@ -34,3 +44,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
+
+export async function GET() {
+    return NextResponse.json(
+        { error: "Method Not Allowed. Authentication requests must use POST." },
+        { status: 405, headers: { Allow: "POST" } }
+    );
+}
+
+export async function PUT() { return GET(); }
+export async function DELETE() { return GET(); }
+export async function PATCH() { return GET(); }

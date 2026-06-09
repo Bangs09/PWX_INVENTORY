@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import type { ComponentItem } from "@/app/(protected)/components/add_components";
 import type { GatewayItem } from "@/app/(protected)/gateways/add_gateways";
+import type { BOMEntry } from "@/app/(protected)/bom/bom-storage";
 
 export function downloadExcelTemplate() {
     // 1. Create a blank workbook
@@ -263,24 +264,98 @@ export async function processExcelImport(
 
 export function exportComponentsToExcel(components: ComponentItem[]) {
     const wb = XLSX.utils.book_new();
-    const headers = ["Component", "SKU", "Category", "Stock", "Critical Stock", "Unit Cost", "Warehouse", "Item Source"];
+    const headers = ["Component", "SKU", "Category", "Stock", "Critical Stock", "Status", "Unit Cost", "Warehouse", "Item Source"];
 
-    const rows = components.map(c => [
-        c.name,
-        c.sku,
-        c.category,
-        c.stock,
-        c.min_stock,
-        c.unit_cost || 0,
-        c.warehouse || "PWX IoT Hub",
-        c.tag || "Local"
-    ]);
+    const rows = components.map(c => {
+        const minStock = c.min_stock || 0;
+        let status = "Good";
+        if (c.stock <= 0) {
+            status = "Out of Stock";
+        } else if (c.stock <= minStock) {
+            status = "Critical";
+        } else if (c.stock <= minStock * 1.5) {
+            status = "Low";
+        }
+
+        return [
+            c.name,
+            c.sku,
+            c.category,
+            c.stock,
+            c.min_stock,
+            status,
+            c.unit_cost || 0,
+            c.warehouse || "PWX IoT Hub",
+            c.tag || "Local"
+        ];
+    });
 
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, "Components");
 
     // Trigger download
     XLSX.writeFile(wb, "Pocketworx_Components_Export.xlsx");
+}
+
+export function exportBOMToExcel(bom: BOMEntry) {
+    const wb = XLSX.utils.book_new();
+
+    // 1. Metadata rows
+    const metadata = [
+        ["Bill of Materials Summary", ""],
+        ["BOM ID", bom.id],
+        ["BOM Name", bom.name],
+        ["Revision", bom.revision],
+        ["Status", bom.status],
+        ["Phase", bom.phase || "—"],
+        ["CPN", bom.cpn || "—"],
+        ["Target Qty", bom.targetQty ?? "—"],
+        ["Total Cost", bom.totalCost !== undefined ? `$${bom.totalCost.toFixed(2)}` : "—"],
+        ["Author", bom.author],
+        ["Last Modified", bom.lastModified],
+        [], // blank row
+    ];
+
+    // 2. Component rows headers
+    const headers = [
+        "Line #",
+        "Level",
+        "Part Number",
+        "Description",
+        "QPA",
+        "UOM",
+        "Unit Cost",
+        "Ext Cost",
+        "Manufacturer",
+        "MPN",
+        "Ref Designator",
+        "Catalog Link SKU"
+    ];
+
+    const rows = (bom.componentRows || []).map(r => {
+        const extCost = (r.qpa || 0) * (r.unitCost || 0);
+        return [
+            r.lineNumber,
+            r.level,
+            r.partNumber || "",
+            r.description || "",
+            r.qpa,
+            r.uom || "Each",
+            r.unitCost || 0,
+            extCost,
+            r.manufacturer || "",
+            r.mpn || "",
+            r.refDesignator || "",
+            r.catalogSku || ""
+        ];
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([...metadata, headers, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, "BOM Details");
+
+    // Trigger download
+    const safeName = bom.name.replace(/[^a-z0-9]/gi, '_');
+    XLSX.writeFile(wb, `${bom.id || "BOM"}_${safeName}_Export.xlsx`);
 }
 
 export async function saveExcelImport(importPreview: ImportResult) {

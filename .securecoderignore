@@ -1,0 +1,11 @@
+# SecureCoder Exclude Patterns
+.next/
+node_modules/
+dist/
+build/
+coverage/
+.next/**
+node_modules/**
+dist/**
+build/**
+coverage/**

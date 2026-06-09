@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 
+const t = (key: string) => key;
+
 export interface WarehouseLocation {
     id?: number;
     name: string;
@@ -76,9 +78,10 @@ export function AddWarehouseDialog({
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: "array" });
+                const sheetsMap = new Map<string, XLSX.WorkSheet>(Object.entries(workbook.Sheets));
                 const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                const worksheet = sheetName ? sheetsMap.get(sheetName) : undefined;
+                const jsonData = worksheet ? XLSX.utils.sheet_to_json(worksheet) : [];
 
                 const processedLocs: any[] = [];
                 for (const row of jsonData as any[]) {
@@ -88,31 +91,34 @@ export function AddWarehouseDialog({
                     let statusVal = "Active";
 
                     // Convert all keys to lower case for easy lookup
-                    const lowerRow: Record<string, any> = {};
-                    for (const key of Object.keys(row)) {
-                        lowerRow[key.toLowerCase().trim()] = row[key];
+                    const lowerRow = new Map<string, any>();
+                    for (const [key, val] of Object.entries(row || {})) {
+                        const cleanKey = key.toLowerCase().trim();
+                        if (cleanKey !== "__proto__" && cleanKey !== "constructor" && cleanKey !== "prototype") {
+                            lowerRow.set(cleanKey, val);
+                        }
                     }
 
                     // Prioritize specific column names for the warehouse name
-                    if (lowerRow["warehouse"]) nameVal = lowerRow["warehouse"];
-                    else if (lowerRow["warehouse name"]) nameVal = lowerRow["warehouse name"];
-                    else if (lowerRow["location"]) nameVal = lowerRow["location"];
-                    else if (lowerRow["name"]) nameVal = lowerRow["name"];
+                    if (lowerRow.has("warehouse")) nameVal = lowerRow.get("warehouse");
+                    else if (lowerRow.has("warehouse name")) nameVal = lowerRow.get("warehouse name");
+                    else if (lowerRow.has("location")) nameVal = lowerRow.get("location");
+                    else if (lowerRow.has("name")) nameVal = lowerRow.get("name");
                     else nameVal = "New Warehouse";
 
                     // Look for zone/area
-                    if (lowerRow["zone"]) zoneVal = lowerRow["zone"];
-                    else if (lowerRow["area"]) zoneVal = lowerRow["area"];
-                    else if (lowerRow["region"]) zoneVal = lowerRow["region"];
+                    if (lowerRow.has("zone")) zoneVal = lowerRow.get("zone");
+                    else if (lowerRow.has("area")) zoneVal = lowerRow.get("area");
+                    else if (lowerRow.has("region")) zoneVal = lowerRow.get("region");
 
                     // Look for status
-                    if (lowerRow["status"]) statusVal = lowerRow["status"];
+                    if (lowerRow.has("status")) statusVal = lowerRow.get("status");
 
                     // Look for components count (summing stock or looking for total_components)
-                    if (lowerRow["total components"]) compVal = parseInt(lowerRow["total components"]) || 0;
-                    else if (lowerRow["components"]) compVal = parseInt(lowerRow["components"]) || 0;
-                    else if (lowerRow["stock"]) compVal = parseInt(lowerRow["stock"]) || 0;
-                    else if (lowerRow["quantity"]) compVal = parseInt(lowerRow["quantity"]) || 0;
+                    if (lowerRow.has("total components")) compVal = parseInt(lowerRow.get("total components")) || 0;
+                    else if (lowerRow.has("components")) compVal = parseInt(lowerRow.get("components")) || 0;
+                    else if (lowerRow.has("stock")) compVal = parseInt(lowerRow.get("stock")) || 0;
+                    else if (lowerRow.has("quantity")) compVal = parseInt(lowerRow.get("quantity")) || 0;
 
                     processedLocs.push({
                         name: String(nameVal).trim(),
@@ -245,15 +251,32 @@ export function AddWarehouseDialog({
             <DialogTrigger asChild>
                 <Button className="bg-neutral-950 hover:bg-neutral-800 text-white shadow-md transition-colors">
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Location
+                    {t("Add Location")}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
                 <DialogHeader className="px-6 py-5 bg-neutral-50/50 border-b border-neutral-100">
-                    <DialogTitle className="text-xl font-bold tracking-tight text-neutral-900">Add New Warehouse Location</DialogTitle>
+                    <DialogTitle className="text-xl font-bold tracking-tight text-neutral-900">{t("Add New Warehouse Location")}</DialogTitle>
                 </DialogHeader>
 
-                <Form {...form}>
+                <Form<z.infer<typeof formSchema>>
+                    watch={form.watch}
+                    getValues={form.getValues}
+                    getFieldState={form.getFieldState}
+                    setError={form.setError}
+                    clearErrors={form.clearErrors}
+                    setValue={form.setValue}
+                    trigger={form.trigger}
+                    formState={form.formState}
+                    resetField={form.resetField}
+                    reset={form.reset}
+                    handleSubmit={form.handleSubmit}
+                    unregister={form.unregister}
+                    control={form.control}
+                    register={form.register}
+                    setFocus={form.setFocus}
+                    subscribe={form.subscribe}
+                >
                     <form 
                         onSubmit={(e) => {
                             e.preventDefault();
@@ -287,7 +310,7 @@ export function AddWarehouseDialog({
                                             <span className="truncate max-w-[200px]">{fileName}</span>
                                         </div>
                                         <span className="text-sm font-medium text-neutral-600">
-                                            {importedData.length} location(s) ready
+                                            {importedData.length} {t("location(s) ready")}
                                         </span>
                                         <button
                                             type="button"
@@ -306,8 +329,8 @@ export function AddWarehouseDialog({
                                             <UploadCloud className={`h-6 w-6 ${isDragging ? 'text-emerald-500' : 'text-neutral-400 group-hover:text-emerald-500'}`} />
                                         </div>
                                         <div className="text-center">
-                                            <span className="text-sm font-semibold text-neutral-700 block">Upload Excel (Optional)</span>
-                                            <span className="text-xs text-neutral-400 font-medium">Drag & drop or click to browse</span>
+                                            <span className="text-sm font-semibold text-neutral-700 block">{t("Upload Excel (Optional)")}</span>
+                                            <span className="text-xs text-neutral-400 font-medium">{t("Drag & drop or click to browse")}</span>
                                         </div>
                                     </div>
                                 )}
@@ -325,7 +348,7 @@ export function AddWarehouseDialog({
                             <div className="space-y-4">
                                 <div className="flex items-center gap-4 py-2">
                                     <div className="h-px flex-1 bg-neutral-100"></div>
-                                    <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase">Or Add Manually</span>
+                                    <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase">{t("Or Add Manually")}</span>
                                     <div className="h-px flex-1 bg-neutral-100"></div>
                                 </div>
 
@@ -336,12 +359,16 @@ export function AddWarehouseDialog({
                                             name="name"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="text-neutral-700 font-semibold text-xs">Location Name</FormLabel>
+                                                    <FormLabel className="text-neutral-700 font-semibold text-xs">{t("Location Name")}</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             placeholder="e.g. Area 51"
                                                             className="rounded-xl border-neutral-200 bg-neutral-50 focus-visible:ring-emerald-500 focus-visible:bg-white transition-all shadow-sm h-11"
-                                                            {...field}
+                                                            name={field.name}
+                                                            value={field.value}
+                                                            onChange={field.onChange}
+                                                            onBlur={field.onBlur}
+                                                            ref={field.ref}
                                                         />
                                                     </FormControl>
                                                     <FormMessage className="text-xs" />
@@ -354,12 +381,16 @@ export function AddWarehouseDialog({
                                             name="zone"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="text-neutral-700 font-semibold text-xs">Zone</FormLabel>
+                                                    <FormLabel className="text-neutral-700 font-semibold text-xs">{t("Zone")}</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             placeholder="e.g. Basement"
                                                             className="rounded-xl border-neutral-200 bg-neutral-50 focus-visible:ring-emerald-500 focus-visible:bg-white transition-all shadow-sm h-11"
-                                                            {...field}
+                                                            name={field.name}
+                                                            value={field.value}
+                                                            onChange={field.onChange}
+                                                            onBlur={field.onBlur}
+                                                            ref={field.ref}
                                                         />
                                                     </FormControl>
                                                     <FormMessage className="text-xs" />
@@ -372,14 +403,18 @@ export function AddWarehouseDialog({
                                             name="total_components"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="text-neutral-700 font-semibold text-xs">Total Components</FormLabel>
+                                                    <FormLabel className="text-neutral-700 font-semibold text-xs">{t("Total Components")}</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             type="number"
                                                             placeholder="e.g. 100"
                                                             className="rounded-xl border-neutral-200 bg-neutral-50 focus-visible:ring-emerald-500 focus-visible:bg-white transition-all shadow-sm h-11"
                                                             min="0"
-                                                            {...field}
+                                                            name={field.name}
+                                                            value={field.value}
+                                                            onChange={field.onChange}
+                                                            onBlur={field.onBlur}
+                                                            ref={field.ref}
                                                         />
                                                     </FormControl>
                                                     <FormMessage className="text-xs" />
@@ -399,7 +434,7 @@ export function AddWarehouseDialog({
                                 disabled={isLoading}
                                 className="rounded-full shadow-sm hover:bg-neutral-100 font-medium px-6 focus:ring-2 focus:ring-neutral-200 transition-all border-neutral-200"
                             >
-                                Cancel
+                                {t("Cancel")}
                             </Button>
                             <Button
                                 type="submit"
@@ -409,10 +444,10 @@ export function AddWarehouseDialog({
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Saving...
+                                        {t("Saving...")}
                                     </>
                                 ) : (
-                                    fileName ? "Import Locations" : "Save Location"
+                                    fileName ? t("Import Locations") : t("Save Location")
                                 )}
                             </Button>
                         </DialogFooter>

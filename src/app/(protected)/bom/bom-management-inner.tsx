@@ -35,6 +35,7 @@ import {
     Target,
     Check,
     X,
+    Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -88,6 +89,7 @@ import {
     deleteBOMOnServer,
 } from "./bom-storage";
 import { useClientRole } from "@/lib/use-client-role";
+import { exportBOMToExcel } from "@/lib/excel-import";
 import { toast } from "sonner";
 
 export type BOMManagementVariant = "main" | "archived";
@@ -262,7 +264,7 @@ export function BOMManagementInner({
         const normSku = sku.toUpperCase().trim();
         const matches = inventoryCatalog.filter(c => 
             c.sku?.toUpperCase().trim() === normSku && 
-            (c.warehouse?.toUpperCase().startsWith("PWX") || c.warehouse === "PWX IoT Hub")
+            (c.warehouse?.toUpperCase()?.startsWith("PWX") || c.warehouse === "PWX IoT Hub")
         );
 
         if (matches.length === 0) {
@@ -301,6 +303,22 @@ export function BOMManagementInner({
         }
         router.push("/bom/create?edit=" + bom.id);
     }, [router]);
+
+    const handleExportExcel = useCallback(async (bom: BOMEntry) => {
+        const toastId = toast.loading(`Preparing export for ${bom.id}...`);
+        try {
+            const fullBOM = await fetchBOMByIdFromServer(bom.id);
+            if (!fullBOM.componentRows || fullBOM.componentRows.length === 0) {
+                toast.error("This BOM has no component lines to export.", { id: toastId });
+                return;
+            }
+            exportBOMToExcel(fullBOM);
+            toast.success("BOM exported to Excel successfully.", { id: toastId });
+        } catch (error: any) {
+            console.error("Failed to export BOM:", error);
+            toast.error(error.message || "Failed to export BOM", { id: toastId });
+        }
+    }, []);
 
     const handleDuplicate = useCallback(async (bom: BOMEntry) => {
         try {
@@ -441,6 +459,11 @@ export function BOMManagementInner({
         if (!displayedBOM) return;
         handleDuplicate(displayedBOM);
     }, [displayedBOM, handleDuplicate]);
+
+    const handleSheetExportExcel = useCallback(() => {
+        if (!displayedBOM) return;
+        handleExportExcel(displayedBOM);
+    }, [displayedBOM, handleExportExcel]);
 
     const COMPONENT_PREVIEW_LIMIT = 10;
 
@@ -598,6 +621,7 @@ export function BOMManagementInner({
                                                         <DropdownMenuItem onClick={() => handleEdit(bom)} disabled={bom.status === "Approved" || bom.status === "Pending Approval"}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit BOM</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleDuplicate(bom)}><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleArchive(bom)} disabled={bom.status === "Pending Approval"}><Archive className="mr-2 h-3.5 w-3.5" /> {bom.status === "Archived" ? "Unarchive" : "Archive"}</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleExportExcel(bom)}><Download className="mr-2 h-3.5 w-3.5" /> Export Excel</DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => setDeleteTarget(bom)} disabled={bom.status === "Approved" || bom.status === "Pending Approval"}><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
                                                     </DropdownMenuContent>
@@ -685,6 +709,7 @@ export function BOMManagementInner({
                                                             <DropdownMenuItem onClick={() => handleEdit(bom)} disabled={bom.status === "Approved" || bom.status === "Pending Approval"}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit BOM</DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => handleDuplicate(bom)}><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => handleArchive(bom)} disabled={bom.status === "Pending Approval"}><Archive className="mr-2 h-3.5 w-3.5" /> {bom.status === "Archived" ? "Unarchive" : "Archive"}</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleExportExcel(bom)}><Download className="mr-2 h-3.5 w-3.5" /> Export Excel</DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => setDeleteTarget(bom)} disabled={bom.status === "Approved" || bom.status === "Pending Approval"}><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
                                                         </DropdownMenuContent>
@@ -1297,6 +1322,13 @@ export function BOMManagementInner({
                                     >
                                         <Copy className="mr-2 h-3.5 w-3.5" />
                                         Duplicate
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={handleSheetExportExcel}
+                                        disabled={!displayedBOM}
+                                    >
+                                        <Download className="mr-2 h-3.5 w-3.5" />
+                                        Export Excel
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         className="text-red-600 focus:bg-red-50 focus:text-red-600"

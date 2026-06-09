@@ -253,7 +253,7 @@ export default function DashboardPage() {
         },
     ];
 
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const res = await fetch("/api/dashboard/stats");
             const data = await res.json();
@@ -261,9 +261,9 @@ export default function DashboardPage() {
         } catch (error) {
             console.error("Failed to fetch dashboard stats:", error);
         }
-    };
+    }, []);
 
-    const fetchLogs = async () => {
+    const fetchLogs = useCallback(async () => {
         try {
             const res = await fetch("/api/activity");
             if (res.ok) {
@@ -273,11 +273,24 @@ export default function DashboardPage() {
         } catch (err) {
             console.error("Failed fetching activity logs", err);
         }
-    };
+    }, []);
+
+    const fetchBoms = useCallback(async () => {
+        try {
+            const res = await fetch("/api/bom");
+            if (res.ok) {
+                const data = await res.json();
+                setLocalBoms(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch BOMs:", error);
+        }
+    }, []);
 
     useEffect(() => {
         fetchStats();
         fetchLogs();
+        fetchBoms();
 
         const storedBoms = localStorage.getItem("pocketworx_boms");
         if (storedBoms) {
@@ -287,19 +300,31 @@ export default function DashboardPage() {
         }
 
         const sse = new EventSource("/api/activity/stream");
-        sse.addEventListener("activity_update", (e) => {
+        const onActivityUpdate = (e: any) => {
             try {
                 const newLog = JSON.parse(e.data);
                 setActivityLogs((prev) => [newLog, ...prev]);
+                fetchStats();
+                fetchBoms();
             } catch (err) {
                 console.error("Failed parsing activity stream", err);
             }
-        });
+        };
+
+        sse.addEventListener("activity_update", onActivityUpdate);
+
+        const interval = setInterval(() => {
+            fetchStats();
+            fetchBoms();
+            fetchLogs();
+        }, 10000);
 
         return () => {
+            sse.removeEventListener("activity_update", onActivityUpdate);
             sse.close();
+            clearInterval(interval);
         };
-    }, []);
+    }, [fetchStats, fetchLogs, fetchBoms]);
 
     // Map dynamic logs to expected UI payload
     const mappedLogs = activityLogs.map(log => {

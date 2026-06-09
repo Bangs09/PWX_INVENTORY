@@ -17,8 +17,8 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Default Production Seeds (Mandatory change on first login)
 INSERT INTO users (name, email, password_hash, role, must_change_password) VALUES 
-('System Admin', 'admin@packetworx.com', '$2b$10$k6/OUnRWiu/L89XY6KX5ZOHrpk1Skjcy2EKIHHh3zb/pFsu5h86.y', 'admin', 1),
-('Default User', 'user@packetworx.com', '$2b$10$k6/OUnRWiu/L89XY6KX5ZOHrpk1Skjcy2EKIHHh3zb/pFsu5h86.y', 'user', 1)
+('System Admin', 'admin@packetworx.com', '$2b$10$YSRzMb2LJIdwBp8ddcw3l.fxkBjTvGaHLRu032CRV5k71CdRdNTUi', 'admin', 1),
+('Default User', 'user@packetworx.com', '$2b$10$YSRzMb2LJIdwBp8ddcw3l.fxkBjTvGaHLRu032CRV5k71CdRdNTUi', 'user', 1)
 ON CONFLICT (email) DO NOTHING;
 
 -- Inventory Components

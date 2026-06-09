@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
-const dbPath = path.join(process.cwd(), 'database.sqlite');
+const dbPath = path.join(process.cwd(), 'database', 'database.sqlite');
 const db = new Database(dbPath);
 
 async function migrate() {

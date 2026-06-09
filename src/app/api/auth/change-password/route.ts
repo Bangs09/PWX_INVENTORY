@@ -15,6 +15,16 @@ const changePasswordSchema = z.object({
 
 export async function POST(req: NextRequest) {
     try {
+        // Enforce HTTPS in production environments
+        if (process.env.NODE_ENV === "production") {
+            const proto = req.headers.get("x-forwarded-proto");
+            if (proto && proto !== "https") {
+                return NextResponse.json(
+                    { error: "HTTPS is required for authentication traffic." },
+                    { status: 400 }
+                );
+            }
+        }
         const cookieStore = await cookies();
         const tokenStr = cookieStore.get("pwx_auth_token")?.value;
 
@@ -80,3 +90,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Failed to update password" }, { status: 500 });
     }
 }
+
+export async function GET() {
+    return NextResponse.json(
+        { error: "Method Not Allowed. Authentication requests must use POST." },
+        { status: 405, headers: { Allow: "POST" } }
+    );
+}
+
+export async function PUT() { return GET(); }
+export async function DELETE() { return GET(); }
+export async function PATCH() { return GET(); }

@@ -3,7 +3,7 @@ import path from 'path';
 import { sseManager } from './sse-clients';
 
 // Initialize the SQLite Connection.
-const dbPath = path.join(process.cwd(), 'Database', 'database.sqlite');
+const dbPath = path.join(process.cwd(), 'database', 'database.sqlite');
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');

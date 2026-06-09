@@ -1,12 +1,12 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const dbPath = path.join(process.cwd(), 'Database', 'database.sqlite');
+const dbPath = path.join(process.cwd(), 'database', 'database.sqlite');
 const db = new Database(dbPath);
 
 try {
     console.log("Checking for unit_cost column...");
-    const info = db.prepare("PRAGMA table_info(inventory_components)").all() as any[];
+    const info = db.prepare("PRAGMA table_info(inventory_components)").all();
     const hasUnitCost = info.some(col => col.name === 'unit_cost');
     
     if (!hasUnitCost) {

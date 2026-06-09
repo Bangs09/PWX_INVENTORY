@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const dbPath = path.join(process.cwd(), 'database.sqlite');
+const dbPath = path.join(process.cwd(), 'database', 'database.sqlite');
 const db = new Database(dbPath);
 
 async function fixPasswords() {

@@ -12,5 +12,19 @@
     "**/.turbo": true,
     "**/out": true,
     "**/build": true
-  }
+  },
+  "securecoder.exclude": [
+    "**/.next/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**"
+  ],
+  "securecoder.ignore": [
+    "**/.next/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**"
+  ]
 }
