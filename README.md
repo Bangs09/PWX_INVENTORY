@@ -81,3 +81,8 @@ Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
 - **Components**: Shadcn/UI & Radix UI
 - **Icons**: Lucide React
 - **Forms**: React Hook Form & Zod
+
+## Deployment
+
+For production deployment instructions using Docker, Compose, and Caddy, see the [deployment/](file:///c:/Users/Packetworx/.gemini/antigravity/scratch/PWX_INVENTORY/deployment/) folder.
+

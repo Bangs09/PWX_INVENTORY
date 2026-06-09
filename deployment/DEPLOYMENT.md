@@ -8,28 +8,33 @@
 ## Quick Start
 
 ### 1. Prepare Environment
+From the repository root directory:
 ```bash
 cp .env.production.example .env.production
 # Edit .env.production with your production values
 ```
 
 ### 2. Build & Deploy
+Change to the `deployment` directory and start the services:
 ```bash
+cd deployment
 docker compose up -d
 ```
 
 Caddy will automatically:
-- Provision TLS certificates for your domain
+- Provision TLS certificates for your domain (pwxnetteam.dpdns.org)
 - Reverse proxy traffic to the Next.js app
 - Handle renewals
 
 ### 3. Initialize Database (First Time)
+Run this from the `deployment` directory:
 ```bash
 # Run inside the container
 docker compose exec web npm run db:init
 ```
 
 ### 4. Verify Deployment
+Run from the `deployment` directory:
 ```bash
 # Check service status
 docker compose ps
@@ -46,13 +51,14 @@ curl https://pwxnetteam.dpdns.org
 
 - [ ] Domain DNS is configured and resolvable
 - [ ] Ports 80/443 are open on your firewall
-- [ ] Environment variables are set in .env.production
+- [ ] Environment variables are set in the root `.env.production`
 - [ ] Database initialized with `npm run db:init`
 - [ ] SSL/TLS certificate provisioned (check Caddy logs)
 - [ ] Application responding on https://pwxnetteam.dpdns.org
 - [ ] Health checks passing (`docker compose ps`)
 
 ## Management
+All commands below should be run from the `deployment/` directory.
 
 ### View Logs
 ```bash
@@ -114,26 +120,19 @@ docker system prune -a
 - TLS termination via Caddy
 - HTTP automatically redirects to HTTPS
 - CSP headers configured in Next.js
-- SQLite database persisted in `/data` volume
+- SQLite database persisted in the `data/` volume (saved in the repository root)
 
 ## Backup
 
-Database is stored in `./data/database.sqlite`. Backup regularly:
+Database is stored in `../data/database.sqlite` (relative to the `deployment/` folder). Backup regularly:
 ```bash
 docker compose exec web tar czf /tmp/db-backup.tar.gz /app/data/
-docker cp pwx-inventory-web:/tmp/db-backup.tar.gz ./backup/
+docker cp pwx-inventory-web:/tmp/db-backup.tar.gz ../backup/
 ```
 
 ## Performance Tips
 
-- Configure Caddy resource limits in docker-compose.yml
+- Configure Caddy resource limits in `docker-compose.yml`
 - Monitor with `docker stats`
 - Enable log rotation (already configured)
 - Set memory limits on services if needed
-
-## Support
-For issues, check:
-1. Docker container logs
-2. Caddy reverse proxy logs
-3. Next.js application health endpoint
-4. Database connectivity

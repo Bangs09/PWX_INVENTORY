@@ -36,3 +36,7 @@ database.sqlite-journal
 
 # OS
 Thumbs.db
+
+# Deployment folder
+deployment/
+

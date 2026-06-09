@@ -1,8 +1,8 @@
 services:
   web:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: deployment/Dockerfile
     container_name: pwx-inventory-web
     restart: unless-stopped
     environment:
@@ -11,7 +11,7 @@ services:
     expose:
       - "3000"
     volumes:
-      - ./data:/app/data
+      - ../data:/app/data
     networks:
       - pwx-net
     healthcheck:

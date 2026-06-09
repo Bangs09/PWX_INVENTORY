@@ -20,9 +20,12 @@
    ```
 
 ## Deployment Steps
+All deployment commands must be run from the `deployment/` directory.
 
 ### Step 1: Build & Start Services
 ```bash
+cd deployment
+
 # Build the Next.js image
 docker compose build
 
@@ -78,11 +81,11 @@ docker compose logs -f caddy
 
 ### Backup Database
 ```bash
-# Create backup directory
-mkdir -p backups
+# Create backup directory in repository root
+mkdir -p ../backups
 
 # Backup database
-docker compose exec web tar czf - /app/data/ > backups/db-$(date +%Y%m%d-%H%M%S).tar.gz
+docker compose exec web tar czf - /app/data/ > ../backups/db-$(date +%Y%m%d-%H%M%S).tar.gz
 ```
 
 ### Auto-Renewal (Caddy Handles This)
@@ -128,7 +131,11 @@ docker compose exec web node -e "require('http').get('http://localhost:3000', (r
 
 ### Update Application
 ```bash
+# Run from repository root
 git pull origin main
+
+# Change to deployment directory and build/run
+cd deployment
 docker compose build --no-cache
 docker compose up -d
 ```
@@ -141,7 +148,7 @@ docker compose exec web npm run db:check
 ### Stop All Services
 ```bash
 docker compose down
-# Database persists in ./data volume
+# Database persists in ../data volume (located in repository root)
 ```
 
 ### Full Cleanup (Destructive)
@@ -180,10 +187,12 @@ SQLite Database (/app/data/database.sqlite)
 - ✅ Log rotation enabled (10MB max)
 - ✅ Health checks prevent zombie containers
 
-## Support Files
+## Support Files in `deployment/`
 
 - `Dockerfile` - Multi-stage production build
 - `docker-compose.yml` - Service orchestration
-- `.dockerignore` - Build context optimization
 - `Caddyfile` - Reverse proxy & SSL
 - `DEPLOYMENT.md` - Detailed deployment guide
+- `DEPLOYMENT_CHECKLIST.md` - Deployment checklist
+- `systemd/pwx-inventory.service` - Linux service file
+- `start-pwx-inventory.bat` - Windows Startup script
