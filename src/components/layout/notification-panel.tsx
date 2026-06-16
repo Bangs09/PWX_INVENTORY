@@ -163,12 +163,12 @@ export function NotificationPanel() {
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
                 <button
-                    className="relative flex items-center justify-center h-9 w-9 rounded-lg hover:bg-neutral-100 transition-all text-neutral-500 hover:text-neutral-900 group"
+                    className="relative flex items-center justify-center h-9 w-9 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 group"
                     title="Notifications"
                 >
                     <Bell className="h-5 w-5 transition-transform group-active:scale-90" />
                     {unreadCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white animate-in zoom-in">
+                        <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white dark:ring-neutral-950 animate-in zoom-in">
                             {unreadCount > 9 ? "9+" : unreadCount}
                         </span>
                     )}
@@ -176,16 +176,16 @@ export function NotificationPanel() {
             </SheetTrigger>
             <SheetContent
                 side="right"
-                className="w-full sm:max-w-md bg-white border-l border-neutral-200 p-0 flex flex-col shadow-2xl"
+                className="w-full sm:max-w-md bg-background border-l border-neutral-200 dark:border-neutral-800 p-0 flex flex-col shadow-2xl"
             >
-                <SheetHeader className="px-5 py-5 border-b border-neutral-100 shrink-0 bg-neutral-50/30">
+                <SheetHeader className="px-5 py-5 border-b border-neutral-100 dark:border-neutral-800 shrink-0 bg-neutral-50/30 dark:bg-neutral-900/30">
                     <div className="flex items-center justify-between">
-                        <SheetTitle className="text-lg font-bold text-neutral-900">
+                        <SheetTitle className="text-lg font-bold text-neutral-900 dark:text-neutral-100">
                             Notifications
                         </SheetTitle>
                         <div className="flex items-center gap-2">
                             {unreadCount > 0 && (
-                                <Badge className="bg-neutral-900 text-white text-[10px] px-2 py-0.5 rounded-full pointer-events-none">
+                                <Badge className="bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[10px] px-2 py-0.5 rounded-full pointer-events-none">
                                     {unreadCount} new
                                 </Badge>
                             )}
@@ -193,7 +193,7 @@ export function NotificationPanel() {
                                 <button
                                     onClick={handleMarkAllRead}
                                     disabled={isLoading}
-                                    className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors disabled:opacity-50"
+                                    className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500 dark:text-neutral-400 transition-colors disabled:opacity-50"
                                     title="Mark all as read"
                                 >
                                     <CheckCheck className="h-4 w-4" />
@@ -201,7 +201,7 @@ export function NotificationPanel() {
                             )}
                             <button
                                 onClick={refresh}
-                                className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500 dark:text-neutral-400 transition-colors"
                                 title="Refresh"
                             >
                                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -210,10 +210,10 @@ export function NotificationPanel() {
                     </div>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto divide-y divide-neutral-100">
+                <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800">
                     {requests.length === 0 && notifications.length === 0 && (
-                        <div className="flex flex-col items-center justify-center gap-3 py-24 text-neutral-400">
-                            <div className="h-12 w-12 rounded-full bg-neutral-50 flex items-center justify-center mb-1">
+                        <div className="flex flex-col items-center justify-center gap-3 py-24 text-neutral-400 dark:text-neutral-500">
+                            <div className="h-12 w-12 rounded-full bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center mb-1">
                                 <Bell className="h-6 w-6 opacity-20" strokeWidth={1.5} />
                             </div>
                             <p className="text-sm font-medium">No notifications yet</p>
@@ -226,21 +226,21 @@ export function NotificationPanel() {
                         ...requests.filter((r) => r.status === "pending"),
                         ...requests.filter((r) => r.status !== "pending"),
                     ].map((req) => (
-                        <div key={`req-${req.id}`} className={`px-5 py-5 space-y-4 transition-colors ${req.status === 'pending' ? 'bg-blue-50/30' : ''}`}>
+                        <div key={`req-${req.id}`} className={`px-5 py-5 space-y-4 transition-colors ${req.status === 'pending' ? 'bg-blue-50/30 dark:bg-blue-950/20' : ''}`}>
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                                        req.type === 'component' ? 'bg-violet-100 text-violet-600' : 'bg-blue-100 text-blue-600'
+                                        req.type === 'component' ? 'bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400' : 'bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
                                     }`}>
                                         {req.type === "component"
                                             ? <Package className="h-5 w-5" />
                                             : <Radio className="h-5 w-5" />}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-bold text-neutral-900 truncate">
+                                        <p className="text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">
                                             {req.itemName}
                                         </p>
-                                        <p className="text-[11px] text-neutral-500 font-mono tracking-tight">{req.itemSku}</p>
+                                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono tracking-tight">{req.itemSku}</p>
                                     </div>
                                 </div>
                                 <Badge
@@ -259,8 +259,8 @@ export function NotificationPanel() {
 
                             <div className="space-y-1">
                                 <div className="flex items-center justify-between text-[13px]">
-                                    <span className="text-neutral-600">
-                                        <span className="font-semibold text-neutral-900">{req.requestedBy}</span>
+                                    <span className="text-neutral-600 dark:text-neutral-400">
+                                        <span className="font-semibold text-neutral-900 dark:text-neutral-100">{req.requestedBy}</span>
                                         {" requested "}
                                         <span className="font-bold text-red-600">−{req.requestedQty} pcs</span>
                                     </span>
@@ -296,15 +296,15 @@ export function NotificationPanel() {
 
                     {/* Generic Notifications */}
                     {notifications.map((notif) => (
-                        <div key={`notif-${notif.id}`} className="px-5 py-4 flex gap-4 hover:bg-neutral-50 transition-colors">
+                        <div key={`notif-${notif.id}`} className="px-5 py-4 flex gap-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
                             <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                                notif.type === 'low_stock' ? 'bg-red-100 text-red-600' : 'bg-neutral-100 text-neutral-600'
+                                notif.type === 'low_stock' ? 'bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
                             }`}>
                                 {notif.type === 'low_stock' ? <AlertCircle className="h-4 w-4" /> : <Info className="h-4 w-4" />}
                             </div>
                             <div className="flex-1 min-w-0 pt-0.5">
-                                <p className="text-sm font-semibold text-neutral-900 leading-tight mb-1">{notif.message}</p>
-                                <p className="text-[11px] text-neutral-400 font-medium">{relativeTime(notif.created_at)}</p>
+                                <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 leading-tight mb-1">{notif.message}</p>
+                                <p className="text-[11px] text-neutral-400 dark:text-neutral-500 font-medium">{relativeTime(notif.created_at)}</p>
                             </div>
                             {!notif.is_read && (
                                 <div className="mt-2 h-2 w-2 rounded-full bg-blue-500 shrink-0" />

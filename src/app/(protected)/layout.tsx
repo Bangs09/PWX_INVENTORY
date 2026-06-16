@@ -73,7 +73,7 @@ export default function ProtectedLayout({
 
     if (checking) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-white">
+            <div className="flex min-h-screen items-center justify-center bg-background">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             </div>
         );
@@ -81,7 +81,7 @@ export default function ProtectedLayout({
 
     return (
         <TooltipProvider delayDuration={0}>
-            <div className="flex h-screen bg-white">
+            <div className="flex h-screen bg-background">
                 {/* Desktop sidebar */}
                 <div className="hidden md:block">
                     <Sidebar
@@ -91,26 +91,26 @@ export default function ProtectedLayout({
                 </div>
 
                 {/* Mobile top bar + sheet sidebar */}
-                <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between bg-white/95 px-4 backdrop-blur-xl md:hidden">
+                <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between bg-background/95 px-4 backdrop-blur-xl md:hidden border-b border-neutral-200 dark:border-neutral-800">
                     <div className="flex items-center gap-2">
                         <Sheet>
                             <SheetTrigger asChild>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                                    className="text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
                                 >
                                     <Menu className="h-5 w-5" />
                                 </Button>
                             </SheetTrigger>
                             <SheetContent
                                 side="left"
-                                className="w-64 border-r border-neutral-200 bg-white p-0"
+                                className="w-64 border-r border-neutral-200 dark:border-neutral-800 bg-background p-0"
                             >
                                 <MobileSidebar />
                             </SheetContent>
                         </Sheet>
-                        <span className="ml-1 text-sm font-semibold text-neutral-900">
+                        <span className="ml-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                             PWX Inventory
                         </span>
                     </div>
@@ -121,7 +121,7 @@ export default function ProtectedLayout({
                 {/* Main content */}
                 <main className="flex-1 flex flex-col overflow-hidden">
                     {/* Desktop top bar with notification bell */}
-                    <div className="hidden md:flex h-12 shrink-0 items-center justify-end bg-white px-6">
+                    <div className="hidden md:flex h-12 shrink-0 items-center justify-end bg-background px-6 border-b border-neutral-200 dark:border-neutral-800">
                         <NotificationPanel />
                     </div>
                     <div className="flex-1 overflow-y-auto w-full">

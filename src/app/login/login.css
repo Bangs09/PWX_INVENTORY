@@ -16,13 +16,6 @@
     --background: #f8f7f6;
 }
 
-.dark .login-theme,
-.login-theme.dark {
-    /* Primary orange stays consistent */
-    --primary: #ec7f13;
-    /* Deep premium dark brown-black replacing the solid void */
-    --background: #120e09;
-}
 
 /* ---------- Animations & States ---------- */
 @keyframes fadeInUp {

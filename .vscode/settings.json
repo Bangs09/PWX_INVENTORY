@@ -26,5 +26,6 @@
     "**/dist/**",
     "**/build/**",
     "**/coverage/**"
-  ]
+  ],
+  "css.lint.unknownAtRules": "ignore"
 }

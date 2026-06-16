@@ -103,7 +103,7 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="flex min-h-screen w-full font-display login-theme overflow-hidden">
+        <div className="flex h-screen w-full font-display login-theme overflow-hidden">
             <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-primary/10">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-primary/40 opacity-90 z-10"></div>
                 <div className="absolute inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAYupUCNGKaEB2y7oNyI-Vx_jSpbk6ZrIM2zndWYcI-Ys72LAiggd-4M2Ekc62hLXmaHRuYFShuI5-EZpkV92dLMRaMkqFi_03mmZ9XpBigvwHzsxzhewEp9R_0JDZ_xp397AjgO87LTX0Zz6RrbXW8jrbmjJ6dvNYhu64fB2KvNVgDlElTi_0iRTvMAzSo3mmH97UYtRmDksFA8FRI6WoOMRm0R0-A5FAJRaNiZpjn8UC6BMz5aemY7rQZYOwt8JGbYShiFN9luRE')" }}></div>
@@ -126,7 +126,7 @@ export default function LoginPage() {
                 </div>
             </div>
 
-            <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 md:p-16 lg:p-24" style={{ backgroundColor: '#f8f7f6' }}>
+            <div className="w-full lg:w-1/2 flex flex-col items-center justify-center overflow-y-auto p-6 md:p-10 lg:p-12" style={{ backgroundColor: '#f8f7f6' }}>
                 <div className="w-full max-w-md">
                     <div className="lg:hidden flex items-center gap-3 mb-12 animate-fade-in-up delay-100">
                         <div className="size-10 bg-primary rounded-lg flex items-center justify-center">
@@ -135,7 +135,7 @@ export default function LoginPage() {
                         <h2 className="text-xl font-bold text-slate-900">Packetworx</h2>
                     </div>
 
-                    <div className="space-y-4 mb-10 animate-fade-in-up delay-100">
+                    <div className="space-y-2 mb-6 animate-fade-in-up delay-100">
                         <h1 className="text-4xl font-black text-slate-900 tracking-tight">Welcome Back</h1>
                         <p className="text-slate-500 text-lg">Please enter your credentials to access your account.</p>
                     </div>
@@ -221,6 +221,10 @@ export default function LoginPage() {
                         </button>
                     </form>
                 </div>
+                <p className="mt-6 text-center text-xs text-slate-400 animate-fade-in-up delay-300">
+                    Designed &amp; Developed by{" "}
+                    <span className="font-semibold text-slate-500">Joshua &amp; Alexis</span>
+                </p>
             </div>
         </div>
     );
